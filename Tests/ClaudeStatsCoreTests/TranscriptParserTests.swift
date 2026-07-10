@@ -4,13 +4,7 @@ import Testing
 @testable import ClaudeStatsCore
 
 /// An assistant record as Claude Code writes it, narrowed to the fields the parser reads.
-private let assistantLine = """
-{"type":"assistant","timestamp":"2026-07-02T09:43:05.761Z","sessionId":"s-1",\
-"cwd":"/Users/me/proj","gitBranch":"main","isSidechain":false,"requestId":"req-1",\
-"message":{"id":"msg-1","model":"claude-opus-4-8",\
-"content":[{"type":"text","text":"hi"}],\
-"usage":{"input_tokens":2,"output_tokens":207,"cache_creation_input_tokens":5481,"cache_read_input_tokens":75382}}}
-"""
+private let assistantLine = assistantJSONLine()
 
 @Test func assistantRecordIsExtracted() throws {
     let outcome = TranscriptParser.parseLine(assistantLine)
@@ -40,9 +34,7 @@ private let assistantLine = """
 
 /// `<synthetic>` records stand for no API call: their usage is all zeros.
 @Test func syntheticRecordsAreExcluded() {
-    let line = assistantLine.replacingOccurrences(of: "claude-opus-4-8", with: "<synthetic>")
-
-    #expect(TranscriptParser.parseLine(line) == .ignored)
+    #expect(TranscriptParser.parseLine(assistantJSONLine(model: "<synthetic>")) == .ignored)
 }
 
 @Test(arguments: [
@@ -60,10 +52,8 @@ func recordsWithoutUsageAreIgnored(line: String) {
 }
 
 @Test func sidechainRecordsAreRetainedWithTheirFlag() throws {
-    let line = assistantLine.replacingOccurrences(
-        of: #""isSidechain":false"#, with: #""isSidechain":true"#)
-
-    guard case .event(let event) = TranscriptParser.parseLine(line) else {
+    guard case .event(let event) = TranscriptParser.parseLine(assistantJSONLine(isSidechain: true))
+    else {
         Issue.record("subagent records must reach the statistics")
         return
     }
@@ -72,9 +62,9 @@ func recordsWithoutUsageAreIgnored(line: String) {
 
 /// One line may carry several `tool_use` blocks; every one of them is a real invocation.
 @Test func everyToolUseBlockIsCollected() throws {
-    let line = assistantLine.replacingOccurrences(
-        of: #"[{"type":"text","text":"hi"}]"#,
-        with: #"[{"type":"text","text":"hi"},{"type":"tool_use","name":"Bash"},{"type":"tool_use","name":"Read"}]"#
+    let line = assistantJSONLine(
+        content:
+            #"[{"type":"text","text":"hi"},{"type":"tool_use","name":"Bash"},{"type":"tool_use","name":"Read"}]"#
     )
 
     guard case .event(let event) = TranscriptParser.parseLine(line) else {

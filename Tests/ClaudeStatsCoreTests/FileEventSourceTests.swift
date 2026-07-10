@@ -34,8 +34,7 @@ private var fixtureRoot: URL {
 }
 
 @Test func emptyRootYieldsNoEventsAndNoSkips() throws {
-    let empty = URL.temporaryDirectory.appending(path: "claudestats-empty-\(UUID().uuidString)")
-    try FileManager.default.createDirectory(at: empty, withIntermediateDirectories: true)
+    let empty = try makeScratchRoot("empty")
     defer { try? FileManager.default.removeItem(at: empty) }
 
     let result = try FileEventSource(root: empty).loadEvents()
@@ -46,8 +45,7 @@ private var fixtureRoot: URL {
 
 /// Files that are not transcripts must not be read at all.
 @Test func nonJSONLFilesAreIgnored() throws {
-    let root = URL.temporaryDirectory.appending(path: "claudestats-mixed-\(UUID().uuidString)")
-    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let root = try makeScratchRoot("mixed")
     defer { try? FileManager.default.removeItem(at: root) }
     try "garbage".write(to: root.appending(path: "notes.txt"), atomically: true, encoding: .utf8)
 

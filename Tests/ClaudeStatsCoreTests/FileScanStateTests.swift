@@ -3,65 +3,49 @@ import Testing
 
 @testable import ClaudeStatsCore
 
-/// A scratch transcript tree that the test can append to.
-private func makeRoot() throws -> URL {
-    let root = URL.temporaryDirectory.appending(path: "claudestats-scan-\(UUID().uuidString)")
-    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-    return root
+private let oneEvent = assistantJSONLine(messageID: "m", content: "[]")
+private let secondEvent = assistantJSONLine(messageID: "m2", content: "[]")
+
+private func write(_ lines: String..., to file: URL) throws {
+    try (lines.joined(separator: "\n") + "\n").write(to: file, atomically: true, encoding: .utf8)
 }
 
-private let oneEvent = """
-    {"type":"assistant","timestamp":"2026-07-02T09:43:05.761Z","sessionId":"s","cwd":"/p",\
-    "requestId":"r","message":{"id":"m","model":"claude-opus-4-8","content":[],\
-    "usage":{"input_tokens":1,"output_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}
-    """
-
 @Test func unchangedFilesProduceTheSameScanState() throws {
-    let root = try makeRoot()
+    let root = try makeScratchRoot("scan")
     defer { try? FileManager.default.removeItem(at: root) }
-    try (oneEvent + "\n").write(
-        to: root.appending(path: "a.jsonl"), atomically: true, encoding: .utf8)
+    try write(oneEvent, to: root.appending(path: "a.jsonl"))
 
-    let before = try FileScanState.capture(root: root)
-    let after = try FileScanState.capture(root: root)
-
-    #expect(before == after)
+    #expect(FileScanState.capture(root: root) == FileScanState.capture(root: root))
 }
 
 @Test func appendingToAFileChangesTheScanState() throws {
-    let root = try makeRoot()
+    let root = try makeScratchRoot("scan")
     defer { try? FileManager.default.removeItem(at: root) }
     let file = root.appending(path: "a.jsonl")
-    try (oneEvent + "\n").write(to: file, atomically: true, encoding: .utf8)
-    let before = try FileScanState.capture(root: root)
+    try write(oneEvent, to: file)
+    let before = FileScanState.capture(root: root)
 
-    let appended = oneEvent.replacingOccurrences(of: #""id":"m""#, with: #""id":"m2""#)
-    try (oneEvent + "\n" + appended + "\n").write(to: file, atomically: true, encoding: .utf8)
-    let after = try FileScanState.capture(root: root)
+    try write(oneEvent, secondEvent, to: file)
 
-    #expect(before != after)
+    #expect(before != FileScanState.capture(root: root))
 }
 
 @Test func addingAFileChangesTheScanState() throws {
-    let root = try makeRoot()
+    let root = try makeScratchRoot("scan")
     defer { try? FileManager.default.removeItem(at: root) }
-    try (oneEvent + "\n").write(
-        to: root.appending(path: "a.jsonl"), atomically: true, encoding: .utf8)
-    let before = try FileScanState.capture(root: root)
+    try write(oneEvent, to: root.appending(path: "a.jsonl"))
+    let before = FileScanState.capture(root: root)
 
-    try (oneEvent + "\n").write(
-        to: root.appending(path: "b.jsonl"), atomically: true, encoding: .utf8)
-    let after = try FileScanState.capture(root: root)
+    try write(oneEvent, to: root.appending(path: "b.jsonl"))
 
-    #expect(before != after)
+    #expect(before != FileScanState.capture(root: root))
 }
 
 /// The point of the scan state: skip parsing entirely when no transcript moved.
 @Test func loadSkipsParsingWhenNothingChanged() throws {
-    let root = try makeRoot()
+    let root = try makeScratchRoot("scan")
     defer { try? FileManager.default.removeItem(at: root) }
-    try (oneEvent + "\n").write(
-        to: root.appending(path: "a.jsonl"), atomically: true, encoding: .utf8)
+    try write(oneEvent, to: root.appending(path: "a.jsonl"))
     let source = FileEventSource(root: root)
 
     let first = try #require(try source.loadEventsIfChanged(since: nil))
@@ -71,15 +55,14 @@ private let oneEvent = """
 }
 
 @Test func loadReparsesWhenAFileChanged() throws {
-    let root = try makeRoot()
+    let root = try makeScratchRoot("scan")
     defer { try? FileManager.default.removeItem(at: root) }
     let file = root.appending(path: "a.jsonl")
-    try (oneEvent + "\n").write(to: file, atomically: true, encoding: .utf8)
+    try write(oneEvent, to: file)
     let source = FileEventSource(root: root)
     let first = try #require(try source.loadEventsIfChanged(since: nil))
 
-    let appended = oneEvent.replacingOccurrences(of: #""id":"m""#, with: #""id":"m2""#)
-    try (oneEvent + "\n" + appended + "\n").write(to: file, atomically: true, encoding: .utf8)
+    try write(oneEvent, secondEvent, to: file)
 
     let second = try #require(try source.loadEventsIfChanged(since: first.state))
     #expect(second.result.events.count == 2)
@@ -87,10 +70,9 @@ private let oneEvent = """
 
 /// Passing no previous state means an explicit refresh: always reparse.
 @Test func explicitRefreshAlwaysReparses() throws {
-    let root = try makeRoot()
+    let root = try makeScratchRoot("scan")
     defer { try? FileManager.default.removeItem(at: root) }
-    try (oneEvent + "\n").write(
-        to: root.appending(path: "a.jsonl"), atomically: true, encoding: .utf8)
+    try write(oneEvent, to: root.appending(path: "a.jsonl"))
     let source = FileEventSource(root: root)
     _ = try source.loadEventsIfChanged(since: nil)
 

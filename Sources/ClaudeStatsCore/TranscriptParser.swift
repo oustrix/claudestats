@@ -14,11 +14,14 @@ public enum TranscriptParser {
     /// Claude Code marks records with no API call behind them this way; their usage is all zeros.
     private static let syntheticModel = "<synthetic>"
 
-    public static func parseLine(_ line: String) -> LineOutcome {
+    /// A caller reading many lines should hand in one decoder rather than pay for one per line.
+    public static func parseLine(_ line: String, using decoder: JSONDecoder = JSONDecoder())
+        -> LineOutcome
+    {
         guard let data = line.data(using: .utf8) else { return .malformed }
         let raw: RawLine
         do {
-            raw = try JSONDecoder().decode(RawLine.self, from: data)
+            raw = try decoder.decode(RawLine.self, from: data)
         } catch {
             return .malformed
         }
@@ -55,13 +58,15 @@ public enum TranscriptParser {
         )
     }
 
-    /// Transcripts write fractional seconds (`…T09:43:05.761Z`), but not always, so both forms are
-    /// tried. `ISO8601FormatStyle` is a value type, unlike `ISO8601DateFormatter`, which Swift 6
-    /// refuses to hold in a static property.
+    /// `ISO8601FormatStyle` is a Sendable value type, unlike `ISO8601DateFormatter`, which Swift 6
+    /// refuses to hold in a static property. So both styles are built once.
+    private static let withFractionalSeconds = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+    private static let withWholeSeconds = Date.ISO8601FormatStyle()
+
+    /// Transcripts write fractional seconds (`…T09:43:05.761Z`), but not always, so both forms are tried.
     private static func parseTimestamp(_ text: String) -> Date? {
-        let withFraction = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
-        if let date = try? withFraction.parse(text) { return date }
-        return try? Date.ISO8601FormatStyle().parse(text)
+        if let date = try? withFractionalSeconds.parse(text) { return date }
+        return try? withWholeSeconds.parse(text)
     }
 }
 
@@ -87,6 +92,7 @@ private struct RawMessage: Decodable {
     let content: [RawContentBlock]?
     let usage: RawUsage?
 
+    // Writing `init(from:)` by hand switches off the synthesis of `CodingKeys` too, so it stays.
     private enum CodingKeys: String, CodingKey {
         case id, model, content, usage
     }

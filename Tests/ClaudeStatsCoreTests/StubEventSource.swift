@@ -15,6 +15,35 @@ struct StubEventSource: EventSource {
     func loadEvents() throws -> ScanResult { result }
 }
 
+/// A scratch transcript directory, removed by the caller's `defer`.
+func makeScratchRoot(_ label: String = "root") throws -> URL {
+    let root = URL.temporaryDirectory.appending(path: "claudestats-\(label)-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    return root
+}
+
+/// One assistant JSONL line. The single in-code definition of the shape `TranscriptParser` reads:
+/// the snake_case usage keys here must stay in step with `RawUsage`.
+func assistantJSONLine(
+    messageID: String = "msg-1",
+    requestID: String = "req-1",
+    timestamp: String = "2026-07-02T09:43:05.761Z",
+    sessionID: String = "s-1",
+    cwd: String = "/Users/me/proj",
+    model: String = "claude-opus-4-8",
+    isSidechain: Bool = false,
+    content: String = #"[{"type":"text","text":"hi"}]"#,
+    usage: String =
+        #"{"input_tokens":2,"output_tokens":207,"cache_creation_input_tokens":5481,"cache_read_input_tokens":75382}"#
+) -> String {
+    """
+    {"type":"assistant","timestamp":"\(timestamp)","sessionId":"\(sessionID)",\
+    "cwd":"\(cwd)","gitBranch":"main","isSidechain":\(isSidechain),"requestId":"\(requestID)",\
+    "message":{"id":"\(messageID)","model":"\(model)",\
+    "content":\(content),"usage":\(usage)}}
+    """
+}
+
 /// Builds an event with everything defaulted, so a test names only the fields it cares about.
 func makeEvent(
     messageID: String = "msg",

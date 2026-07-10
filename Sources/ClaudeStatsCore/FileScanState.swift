@@ -1,17 +1,5 @@
 import Foundation
 
-/// Finds every transcript below `root`. One definition, shared by the scanner and the reader, so
-/// the two can never disagree about which files count.
-func transcriptFiles(under root: URL) -> [URL] {
-    guard
-        let enumerator = FileManager.default.enumerator(
-            at: root, includingPropertiesForKeys: [.isRegularFileKey])
-    else {
-        return []
-    }
-    return enumerator.compactMap { $0 as? URL }.filter { $0.pathExtension == "jsonl" }
-}
-
 /// A fingerprint of the transcript tree: every `.jsonl` file with its size and modification time.
 ///
 /// Comparing two of these answers "did anything move?" without reading a byte of content. That is
@@ -21,22 +9,29 @@ func transcriptFiles(under root: URL) -> [URL] {
 public struct FileScanState: Equatable, Sendable {
     private let stamps: [String: Stamp]
 
-    private struct Stamp: Equatable, Sendable {
-        let size: Int
-        let modified: Date
+    private enum Stamp: Equatable, Sendable {
+        case measured(size: Int, modified: Date)
+        /// Present but unreadable. A case of its own, so no reader has to know that a size of -1
+        /// is a lie. A file that later becomes readable compares unequal and triggers a reparse.
+        case unreadable
     }
 
-    public static func capture(root: URL) throws -> FileScanState {
+    public static func capture(root: URL) -> FileScanState {
+        capture(files: transcriptFiles(under: root))
+    }
+
+    /// Takes the file list so a caller that already enumerated the tree does not walk it twice.
+    static func capture(files: [URL]) -> FileScanState {
         var stamps: [String: Stamp] = [:]
-        for file in transcriptFiles(under: root) {
-            let values = try? file.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
-            guard let size = values?.fileSize, let modified = values?.contentModificationDate else {
-                // A file we cannot stat still belongs in the fingerprint, or its later appearance
-                // would look like "nothing changed".
-                stamps[file.path()] = Stamp(size: -1, modified: .distantPast)
-                continue
+        for file in files {
+            let values = try? file.resourceValues(forKeys: [
+                .fileSizeKey, .contentModificationDateKey,
+            ])
+            if let size = values?.fileSize, let modified = values?.contentModificationDate {
+                stamps[file.path()] = .measured(size: size, modified: modified)
+            } else {
+                stamps[file.path()] = .unreadable
             }
-            stamps[file.path()] = Stamp(size: size, modified: modified)
         }
         return FileScanState(stamps: stamps)
     }

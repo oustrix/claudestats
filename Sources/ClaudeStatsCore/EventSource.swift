@@ -38,17 +38,37 @@ public struct FileEventSource: EventSource {
     }
 
     public func loadEvents() throws -> ScanResult {
+        parse(files: try discover())
+    }
+
+    /// Returns `nil` when no transcript changed since `previous`, meaning nothing was parsed.
+    /// Pass `nil` for `previous` to force a reparse — that is what an explicit refresh does.
+    public func loadEventsIfChanged(since previous: FileScanState?) throws -> (
+        result: ScanResult, state: FileScanState
+    )? {
+        let files = try discover()
+        let state = FileScanState.capture(files: files)
+        if let previous, previous == state { return nil }
+        return (parse(files: files), state)
+    }
+
+    private func discover() throws -> [URL] {
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: root.path(), isDirectory: &isDirectory),
             isDirectory.boolValue
         else {
             throw EventSourceError.rootNotFound(root)
         }
+        return transcriptFiles(under: root)
+    }
 
+    private func parse(files: [URL]) -> ScanResult {
         var events: [TranscriptEvent] = []
         var skippedLines = 0
+        // One decoder for the whole scan: a fresh one per line would cost thousands of allocations.
+        let decoder = JSONDecoder()
 
-        for file in transcriptFiles(under: root) {
+        for file in files {
             guard let contents = try? String(contentsOf: file, encoding: .utf8) else {
                 // An unreadable file is not a malformed line; it is a file we could not open.
                 continue
@@ -57,7 +77,7 @@ public struct FileEventSource: EventSource {
                 // Blank lines are structure, not data: every transcript ends with a newline.
                 guard !line.allSatisfy(\.isWhitespace) else { continue }
 
-                switch TranscriptParser.parseLine(String(line)) {
+                switch TranscriptParser.parseLine(String(line), using: decoder) {
                 case .event(let event): events.append(event)
                 case .ignored: continue
                 case .malformed: skippedLines += 1
@@ -65,15 +85,5 @@ public struct FileEventSource: EventSource {
             }
         }
         return ScanResult(events: events, skippedLines: skippedLines)
-    }
-
-    /// Returns `nil` when no transcript changed since `previous`, meaning nothing was parsed.
-    /// Pass `nil` for `previous` to force a reparse — that is what an explicit refresh does.
-    public func loadEventsIfChanged(since previous: FileScanState?) throws -> (
-        result: ScanResult, state: FileScanState
-    )? {
-        let state = try FileScanState.capture(root: root)
-        if let previous, previous == state { return nil }
-        return (try loadEvents(), state)
     }
 }
