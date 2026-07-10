@@ -37,6 +37,7 @@
 
 ## 5. Verification Against Reality
 
+- [ ] 5.0 Surface unreadable files, not just malformed lines. `FileEventSource` currently skips a file it cannot open without counting it, so a permissions error or a non-UTF-8 transcript would silently drop all of that file's events — the exact swallowed error the design forbids. Add an unreadable-file count to `ScanResult` alongside `skippedLines`, cover it with a test, and show it wherever the skipped-line count is shown.
 - [ ] 5.1 Implement `make dump`: run the core against the real `~/.claude/projects/`, print per-counter totals, per-model and per-project breakdowns, parsed-record and skipped-line counts.
 - [ ] 5.2 Cross-check `make dump` totals against an independent `jq` computation over the same corpus; record the comparison in the change notes. Investigate any discrepancy before proceeding — a mismatch means the parser is wrong.
 - [ ] 5.3 Cross-check per-model request counts against `ccusage`, noting any definitional differences rather than tuning numbers to match.
