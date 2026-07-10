@@ -14,16 +14,10 @@ private let splitMessage = [
 ]
 
 @Test func tokensOfASplitMessageAreCountedOnce() {
-    let messages = deduplicatedMessages(from: splitMessage)
+    let messages = Counting.messages(from: splitMessage)
 
     #expect(messages.count == 1)
     #expect(messages.first?.usage == sharedUsage)
-}
-
-@Test func everyToolBlockOfASplitMessageIsCounted() {
-    let tools = toolInvocations(from: splitMessage)
-
-    #expect(tools == ["Bash"])
 }
 
 /// Two lines of one message, each with a tool block: two invocations, one usage.
@@ -33,8 +27,8 @@ private let splitMessage = [
         makeEvent(messageID: "m", requestID: "r", usage: sharedUsage, toolNames: ["Read"]),
     ]
 
-    #expect(deduplicatedMessages(from: events).count == 1)
-    #expect(toolInvocations(from: events) == ["Bash", "Read"])
+    #expect(Counting.messages(from: events).count == 1)
+    #expect(Counting.toolInvocations(from: events) == ["Bash", "Read"])
 }
 
 @Test func distinctMessagesAreNeverMerged() {
@@ -44,7 +38,7 @@ private let splitMessage = [
         makeEvent(messageID: "msg-2", requestID: "req-2"),
     ]
 
-    #expect(deduplicatedMessages(from: events).map(\.messageID) == ["msg-1", "msg-2", "msg-2"])
+    #expect(Counting.messages(from: events).map(\.messageID) == ["msg-1", "msg-2", "msg-2"])
 }
 
 /// A missing requestId must not collapse two messages into one.
@@ -54,7 +48,7 @@ private let splitMessage = [
         makeEvent(messageID: "msg-2", requestID: nil),
     ]
 
-    #expect(deduplicatedMessages(from: events).count == 2)
+    #expect(Counting.messages(from: events).count == 2)
 }
 
 @Test func deduplicationKeepsTheFirstOccurrenceAndItsOrder() {
@@ -64,24 +58,26 @@ private let splitMessage = [
         makeEvent(messageID: "b", requestID: "r", model: "second"),
     ]
 
-    let messages = deduplicatedMessages(from: events)
+    let messages = Counting.messages(from: events)
 
     #expect(messages.map(\.messageID) == ["b", "a"])
     #expect(messages.first?.model == "first")
 }
 
 /// The whole reason this module exists. If someone ever "simplifies" the counting back to summing
-/// lines, this test fails: the naive total is 2x the true one on a message split across two lines.
+/// lines, this test fails. The claim is structural — a response written across two lines is counted
+/// twice — so it is asserted as a ratio, not against the fixture's token values.
 @Test func naiveLineSumInflatesTheTrueTotal() {
-    let naive = splitMessage.reduce(0) { $0 + $1.usage.input + $1.usage.output }
-    let honest = deduplicatedMessages(from: splitMessage)
+    let perLine = splitMessage.map { $0.usage.input + $0.usage.output }
+    let naive = perLine.reduce(0, +)
+    let honest = Counting.messages(from: splitMessage)
         .reduce(0) { $0 + $1.usage.input + $1.usage.output }
 
-    #expect(naive == 418)
-    #expect(honest == 209)
+    #expect(honest == perLine[0])
+    #expect(naive == 2 * honest)
 }
 
 @Test func emptyInputYieldsEmptyOutput() {
-    #expect(deduplicatedMessages(from: []).isEmpty)
-    #expect(toolInvocations(from: []).isEmpty)
+    #expect(Counting.messages(from: []).isEmpty)
+    #expect(Counting.toolInvocations(from: []).isEmpty)
 }

@@ -37,7 +37,9 @@ An assistant message is serialised as one JSONL line per content block. All line
 - **Token usage** is counted once per distinct `(messageID, requestID)`. Deduplication is by first occurrence; the `usage` objects are identical, so the choice is immaterial.
 - **Tool invocations** are counted once per `tool_use` block, across all lines. Two lines of one message mean two distinct tool calls, and both are real.
 
-Measured effect of getting this wrong: 189 288 158 tokens naive versus 83 457 634 deduplicated, a 2.27× inflation.
+Measured effect of getting this wrong: 189 288 158 tokens naive versus 83 457 634 deduplicated, a 2.27× inflation. (A later snapshot, taken while implementing, measured 2.36× on input plus output — the ratio drifts with the corpus, the failure does not.)
+
+**The rule is enforced by the type system, not by convention.** `TranscriptEvent.usage` is internal to `ClaudeStatsCore`; tokens are reachable only through `Message`, and the only way to obtain a `Message` is `Counting.messages(from:)`, which deduplicates. Summing tokens per line does not compile outside the module. `toolNames` stays public on the raw event, because that is where tool invocations legitimately live.
 
 ### Cache tokens dominate, so no single "total" is meaningful
 

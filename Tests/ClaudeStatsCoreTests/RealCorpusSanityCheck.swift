@@ -19,17 +19,25 @@ func realCorpusSanityCheck() throws {
         ?? URL.homeDirectory.appending(path: ".claude/projects")
     let result = try FileEventSource(root: root).loadEvents()
 
-    let messages = deduplicatedMessages(from: result.events)
+    let messages = Counting.messages(from: result.events)
+    let totals = messages.reduce(into: (input: 0, output: 0, creation: 0, read: 0)) {
+        $0.input += $1.usage.input
+        $0.output += $1.usage.output
+        $0.creation += $1.usage.cacheCreation
+        $0.read += $1.usage.cacheRead
+    }
+    // Deliberately re-derived here rather than through the production sum: this check exists to
+    // disagree with the code when the code is wrong.
     let naive = result.events.reduce(0) { $0 + $1.usage.input + $1.usage.output }
-    let honest = messages.reduce(0) { $0 + $1.usage.input + $1.usage.output }
+    let honest = totals.input + totals.output
 
     print("EVENTS=\(result.events.count)")
     print("SKIPPED=\(result.skippedLines)")
     print("UNIQUE_MESSAGES=\(messages.count)")
-    print("TOOL_INVOCATIONS=\(toolInvocations(from: result.events).count)")
-    print("INPUT=\(messages.reduce(0) { $0 + $1.usage.input })")
-    print("OUTPUT=\(messages.reduce(0) { $0 + $1.usage.output })")
-    print("CACHE_CREATION=\(messages.reduce(0) { $0 + $1.usage.cacheCreation })")
-    print("CACHE_READ=\(messages.reduce(0) { $0 + $1.usage.cacheRead })")
+    print("TOOL_INVOCATIONS=\(result.events.reduce(0) { $0 + $1.toolNames.count })")
+    print("INPUT=\(totals.input)")
+    print("OUTPUT=\(totals.output)")
+    print("CACHE_CREATION=\(totals.creation)")
+    print("CACHE_READ=\(totals.read)")
     print("INFLATION=\(Double(naive) / Double(honest))")
 }

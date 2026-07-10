@@ -15,12 +15,12 @@ public struct TokenUsage: Equatable, Sendable {
     }
 }
 
-/// One JSONL line of `type: "assistant"`, flattened.
+/// One JSONL line of `type: "assistant"`, flattened. An event is a line, not an API call: a single
+/// response is written across several lines, one per content block.
 ///
-/// A single model message is written as several lines — one per content block — and each repeats
-/// the same `usage`. So one event is not one API call: tokens are counted once per
-/// `(messageID, requestID)` pair, while tool invocations are counted per block. See openspec
-/// `design.md`, section "Two counting rules".
+/// `usage` is internal on purpose. Tokens are only reachable through `Message`, which
+/// `Counting.messages(from:)` produces one per response — so no caller outside this module can sum
+/// tokens per line and inflate the total.
 public struct TranscriptEvent: Equatable, Sendable {
     public let messageID: String
     public let requestID: String?
@@ -30,6 +30,8 @@ public struct TranscriptEvent: Equatable, Sendable {
     public let gitBranch: String?
     public let model: String
     public let isSidechain: Bool
-    public let usage: TokenUsage
+    let usage: TokenUsage
+    /// Counted per block, never deduplicated: two lines of one response, each with a tool block,
+    /// are two real invocations.
     public let toolNames: [String]
 }
