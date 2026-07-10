@@ -11,7 +11,7 @@ let home = NSHomeDirectory()
 let root =
     CommandLine.arguments.count > 1
     ? URL(filePath: CommandLine.arguments[1])
-    : URL(filePath: home).appending(path: ".claude/projects")
+    : FileEventSource.defaultRoot
 
 let result: ScanResult
 do {

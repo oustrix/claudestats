@@ -15,6 +15,7 @@ private func scratchFile() throws -> URL {
 
     #expect(loaded.layout == Layout.default)
     #expect(loaded.wasReset == false)
+    #expect(loaded.persistenceError == nil)
     #expect(FileManager.default.fileExists(atPath: file.path()))
 }
 
@@ -58,10 +59,28 @@ private func scratchFile() throws -> URL {
 
     let loaded = LayoutStore(fileURL: file).load()
 
-    #expect(loaded.skippedTypes == ["flameGraph"])
+    #expect(loaded.skipped == [.unknownType("flameGraph")])
     #expect(loaded.wasReset == false)
     #expect(loaded.layout.blocks.isEmpty)
     #expect(FileManager.default.fileExists(atPath: file.appendingPathExtension("bak").path()) == false)
+}
+
+/// Announcing a reset that never reached the disk would be a lie: the broken file is still there,
+/// and it will greet the user again at the next launch.
+@Test func aResetThatCannotBeWrittenSaysSo() throws {
+    let root = try makeScratchRoot("readonly")
+    defer {
+        try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path())
+        try? FileManager.default.removeItem(at: root)
+    }
+    let file = root.appending(path: "layout.json")
+    try Data("{ broken".utf8).write(to: file)
+    try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: root.path())
+
+    let loaded = LayoutStore(fileURL: file).load()
+
+    #expect(loaded.wasReset)
+    #expect(loaded.persistenceError != nil)
 }
 
 @Test func savingCreatesMissingDirectories() throws {

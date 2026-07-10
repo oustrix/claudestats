@@ -29,6 +29,21 @@ public enum EventSourceError: Error, Equatable {
 /// fixtures through the same protocol.
 public protocol EventSource: Sendable {
     func loadEvents() throws -> ScanResult
+
+    /// Returns `nil` when nothing changed since `previous`, meaning nothing was read. Pass `nil` to
+    /// force a read — that is what an explicit refresh does.
+    func loadEventsIfChanged(since previous: FileScanState?) throws -> (
+        result: ScanResult, state: FileScanState
+    )?
+}
+
+extension EventSource {
+    /// A source with no notion of change reads every time. Correct, merely not thrifty.
+    public func loadEventsIfChanged(since previous: FileScanState?) throws -> (
+        result: ScanResult, state: FileScanState
+    )? {
+        (try loadEvents(), FileScanState.capture(files: []))
+    }
 }
 
 /// Reads every `.jsonl` below a root directory, in one pass, keeping nothing between runs.

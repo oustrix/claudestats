@@ -27,7 +27,7 @@ private func json(_ text: String) -> Data { Data(text.utf8) }
 
     let decoded = try Layout.decode(data)
 
-    #expect(decoded.skippedTypes.isEmpty)
+    #expect(decoded.skipped.isEmpty)
     #expect(decoded.layout.blocks.count == 1)
     #expect(decoded.layout.blocks[0].type == .timeSeries)
     #expect(decoded.layout.blocks[0].metric == .cacheRead)
@@ -49,11 +49,13 @@ private func json(_ text: String) -> Data { Data(text.utf8) }
     let decoded = try Layout.decode(data)
 
     #expect(decoded.layout.blocks.count == 1)
-    #expect(decoded.skippedTypes == ["flameGraph"])
+    #expect(decoded.skipped == [.unknownType("flameGraph")])
 }
 
 /// An unknown *parameter* value is a different failure: the block type is known, the value is not.
-@Test func anUnknownMetricIsSkippedAndNamed() throws {
+/// Telling the user "unknown block type: bigNumber" about a type this build fully supports would
+/// send them looking for a new release instead of for their typo.
+@Test func anUnknownMetricIsReportedAsABadParameterNotABadType() throws {
     let data = json(
         """
         {"version": 1, "blocks": [
@@ -65,7 +67,7 @@ private func json(_ text: String) -> Data { Data(text.utf8) }
     let decoded = try Layout.decode(data)
 
     #expect(decoded.layout.blocks.isEmpty)
-    #expect(decoded.skippedTypes == ["bigNumber"])
+    #expect(decoded.skipped == [.unreadableParameters(type: .bigNumber)])
 }
 
 @Test func malformedJSONIsReportedAsSuch() {
@@ -78,7 +80,7 @@ private func json(_ text: String) -> Data { Data(text.utf8) }
     let decoded = try Layout.decode(json(#"{"version": 1, "blocks": []}"#))
 
     #expect(decoded.layout.blocks.isEmpty)
-    #expect(decoded.skippedTypes.isEmpty)
+    #expect(decoded.skipped.isEmpty)
 }
 
 /// Identity survives a round trip, so reordering a block does not recreate it.

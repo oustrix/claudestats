@@ -64,14 +64,24 @@ The system SHALL persist the block list to `~/Library/Application Support/Claude
 #### Scenario: A block of unknown type is skipped, not fatal
 - **WHEN** the layout file contains a block whose `type` this build does not recognise
 - **THEN** the system renders the remaining blocks
-- **AND** displays a notice naming the skipped block type
+- **AND** displays a notice naming the unrecognised type
 - **AND** does not crash or overwrite the file.
+
+#### Scenario: A block with an unreadable parameter is distinguished from an unknown type
+- **WHEN** a block's `type` is recognised but one of its parameter values is not
+- **THEN** the system skips that block and reports it as having unreadable parameters, naming its type
+- **AND** does not report the type itself as unknown, because a user told their supported block type is unknown will look for a new release instead of for their typo.
 
 #### Scenario: A malformed layout file is preserved and replaced
 - **WHEN** the layout file is not valid JSON or fails to decode
-- **THEN** the system moves it aside to `layout.json.bak`
+- **THEN** the system moves it aside to `layout.json.bak`, or to the next free `layout.json.bakN` when a backup already exists
 - **AND** renders the default layout
 - **AND** informs the user that the layout was reset.
+
+#### Scenario: A reset that cannot be written to disk is not announced as done
+- **WHEN** the layout file is malformed and the backup or the replacement cannot be written
+- **THEN** the system reports the persistence failure alongside the reset
+- **AND** does not claim the file was moved aside when it was not.
 
 ### Requirement: Data quality is visible
 The system SHALL display the number of parsed records and the number of skipped lines from the most recent scan, and SHALL surface load failures rather than rendering zeros.

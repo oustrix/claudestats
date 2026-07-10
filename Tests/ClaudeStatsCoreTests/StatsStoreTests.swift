@@ -4,10 +4,14 @@ import Testing
 @testable import ClaudeStatsCore
 
 /// A source whose answers the test dictates, so the store can be driven without a filesystem.
-private final class ScriptedSource: ChangeAwareEventSource, @unchecked Sendable {
+private final class ScriptedSource: EventSource, @unchecked Sendable {
     var answers: [Result<(result: ScanResult, state: FileScanState)?, Error>] = []
     private(set) var callCount = 0
     private(set) var lastKnownState: FileScanState??
+
+    func loadEvents() throws -> ScanResult {
+        try loadEventsIfChanged(since: nil)!.result
+    }
 
     func loadEventsIfChanged(since previous: FileScanState?) throws -> (
         result: ScanResult, state: FileScanState

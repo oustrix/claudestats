@@ -1,16 +1,6 @@
 import Foundation
 import Observation
 
-/// A source that can say "nothing changed" without reparsing. `FileEventSource` implements it; the
-/// store depends on this rather than on the filesystem, so it can be driven in tests.
-public protocol ChangeAwareEventSource: Sendable {
-    func loadEventsIfChanged(since previous: FileScanState?) throws -> (
-        result: ScanResult, state: FileScanState
-    )?
-}
-
-extension FileEventSource: ChangeAwareEventSource {}
-
 /// The single observable the dashboard reads. Holds the events once; blocks recompute from them.
 ///
 /// The store owns no timer. A caller ticks it, which keeps the refresh policy in the UI where it
@@ -23,17 +13,20 @@ public final class StatsStore {
         case loaded(ScanResult)
         /// The transcript directory does not exist. Distinct from "zero usage recorded".
         case noTranscripts(URL)
-        case failed(String)
+        /// Something else went wrong. The error itself is in `lastError`, which is the one place it
+        /// lives — a copy in the state would be a second thing to keep in step.
+        case failed
     }
 
     public private(set) var state: State = .idle
-    /// The most recent failure, kept even when earlier events are still on screen.
-    public private(set) var lastError: String?
+    /// The most recent failure, kept even when earlier events are still on screen. Typed, because a
+    /// caller that must distinguish a missing directory from a broken one cannot do it on a string.
+    public private(set) var lastError: (any Error)?
 
-    @ObservationIgnored private let source: any ChangeAwareEventSource
+    @ObservationIgnored private let source: any EventSource
     @ObservationIgnored private var lastScan: FileScanState?
 
-    public init(source: any ChangeAwareEventSource) {
+    public init(source: any EventSource) {
         self.source = source
     }
 
@@ -63,14 +56,15 @@ public final class StatsStore {
             lastError = nil
             state = .loaded(scan.result)
 
-        case .failure(EventSourceError.rootNotFound(let root)):
-            state = .noTranscripts(root)
-
         case .failure(let error):
-            lastError = String(describing: error)
+            lastError = error
+            if case EventSourceError.rootNotFound(let root) = error {
+                state = .noTranscripts(root)
+                break
+            }
             // A failed refresh must not erase numbers that were already read successfully.
             if case .loaded = state { break }
-            state = .failed(String(describing: error))
+            state = .failed
         }
     }
 }

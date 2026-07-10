@@ -34,6 +34,16 @@ public struct BlockConfig: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+/// A block the layout named but this build could not render. The two cases call for different
+/// answers from the user, so they are not flattened into one: an unknown type means the config was
+/// written by a newer build, while unreadable parameters mean a typo this build can point at.
+public enum SkippedBlock: Equatable, Sendable {
+    /// The `type` string is not in this build's catalog. Carries the raw string.
+    case unknownType(String)
+    /// The type is known, but one of its parameters is not a value this build understands.
+    case unreadableParameters(type: BlockType)
+}
+
 /// The dashboard, as stored on disk.
 public struct Layout: Equatable, Sendable {
     public var version: Int
@@ -65,49 +75,47 @@ public struct Layout: Equatable, Sendable {
     /// What a decode produced, and what it had to leave behind.
     public struct Decoded: Equatable, Sendable {
         public let layout: Layout
-        /// Blocks this build could not render, named so the user learns why the dashboard is short.
-        public let skippedTypes: [String]
+        public let skipped: [SkippedBlock]
     }
 
     /// A block this build cannot render is skipped, never fatal: an older build must survive a
-    /// config written by a newer one. A block whose *type* is unreadable is named by its raw string;
-    /// a block whose type is known but whose parameters are not is named by that type.
+    /// config written by a newer one.
     public static func decode(_ data: Data) throws -> Decoded {
         let document = try JSONDecoder().decode(RawLayout.self, from: data)
         var blocks: [BlockConfig] = []
-        var skipped: [String] = []
+        var skipped: [SkippedBlock] = []
 
-        for raw in document.blocks {
-            switch raw {
+        for entry in document.blocks {
+            switch entry {
             case .block(let block): blocks.append(block)
-            case .unreadable(let name): skipped.append(name)
+            case .skipped(let reason): skipped.append(reason)
             }
         }
-        return Decoded(layout: Layout(version: document.version, blocks: blocks), skippedTypes: skipped)
+        return Decoded(layout: Layout(version: document.version, blocks: blocks), skipped: skipped)
     }
 
     public static func encode(_ layout: Layout) throws -> Data {
         let encoder = JSONEncoder()
         // The user edits this file by hand, so it is formatted for eyes rather than for bytes.
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try encoder.encode(RawLayout(version: layout.version, blocks: layout.blocks))
+        return try encoder.encode(EncodedLayout(version: layout.version, blocks: layout.blocks))
     }
 }
 
-/// Decoding shape that tolerates blocks it cannot understand.
-private struct RawLayout: Codable {
+/// The written form. Skipped blocks are never written back, so this shape knows nothing about them.
+private struct EncodedLayout: Encodable {
+    let version: Int
+    let blocks: [BlockConfig]
+}
+
+/// The read form, which must survive blocks it cannot understand.
+private struct RawLayout: Decodable {
     let version: Int
     let blocks: [Entry]
 
-    init(version: Int, blocks: [BlockConfig]) {
-        self.version = version
-        self.blocks = blocks.map(Entry.block)
-    }
-
-    enum Entry: Codable {
+    enum Entry: Decodable {
         case block(BlockConfig)
-        /// The raw `type` string, or `"?"` when even that is missing.
-        case unreadable(String)
+        case skipped(SkippedBlock)
 
         private struct TypeProbe: Decodable {
             let type: String?
@@ -118,16 +126,12 @@ private struct RawLayout: Codable {
                 self = .block(block)
                 return
             }
-            let probe = try? TypeProbe(from: decoder)
-            self = .unreadable(probe?.type ?? "?")
-        }
-
-        func encode(to encoder: Encoder) throws {
-            switch self {
-            case .block(let block): try block.encode(to: encoder)
-            case .unreadable(let name):
-                var container = encoder.singleValueContainer()
-                try container.encode(name)
+            // The block did not decode. Whether its *type* is unknown or merely its parameters
+            // decides what the user should be told, so probe the raw type string to find out.
+            let rawType = (try? TypeProbe(from: decoder))?.type
+            switch rawType.flatMap(BlockType.init(rawValue:)) {
+            case .some(let known): self = .skipped(.unreadableParameters(type: known))
+            case .none: self = .skipped(.unknownType(rawType ?? "?"))
             }
         }
     }
