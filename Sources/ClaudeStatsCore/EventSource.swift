@@ -38,6 +38,11 @@ public protocol EventSource: Sendable {
 public struct FileEventSource: EventSource {
     private let root: URL
 
+    /// Where Claude Code keeps its transcripts.
+    public static var defaultRoot: URL {
+        URL.homeDirectory.appending(path: ".claude/projects")
+    }
+
     public init(root: URL) {
         self.root = root
     }

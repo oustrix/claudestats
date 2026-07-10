@@ -45,12 +45,12 @@
 
 ## 6. Store and Layout
 
-- [ ] 6.0 Every `Aggregation` entry point deduplicates internally, which is right for correctness and cheap for a one-shot dump. A dashboard is not one-shot: six blocks re-running the dedup on every re-render, timeframe toggle and hover would repeat the whole pass each time. Have `StatsStore` hold the events once and confirm, by measurement rather than assumption, that per-block recomputation stays imperceptible before adding any cache.
-- [ ] 6.1 Add `StatsStore` as an `@Observable` holding load state (`idle`, `loading`, `loaded(ScanResult)`, `failed(Error)`), performing loads off the main thread, exposing `refresh()` and driving a 30-second timer that consults `FileScanState`.
-- [ ] 6.2 Add `BlockConfig` as a `Codable` sum of the four block types with their parameters, and `Layout` (`version`, `blocks`).
-- [ ] 6.3 Write failing tests for layout decoding: a valid document round-trips; an unknown block `type` is skipped and named rather than throwing; a malformed document is reported as such. Implement.
-- [ ] 6.4 Implement `LayoutStore`: read from `~/Library/Application Support/ClaudeStats/layout.json`, write on every mutation, move a malformed file aside to `layout.json.bak` and fall back to the default layout, create the directory if absent.
-- [ ] 6.5 Define the default layout: a `bigNumber` on `inputOutput`/`last7Days`, a `timeSeries` on `inputOutput`/`last7Days`/`day`, a `breakdown` by `model`, a `breakdown` by `project`, a `breakdown` by `tool`, and a `sessionList`.
+- [x] 6.0 Measure the cost of a render in which every block recomputes from raw events, before adding any cache. Release build, 3 454 events: one dedup pass 0.7 ms; `bigNumber` 0.8 ms; `timeSeries` 3.1 ms; `breakdown` 1.1 ms; `sessionList` 1.3 ms; a full six-block render **7.5 ms**, against a 16 ms frame. No cache. Revisit only if a measurement, not an intuition, says otherwise.
+- [x] 6.1 Add `StatsStore` as an `@Observable` holding load state (`idle`, `loading`, `loaded(ScanResult)`, `noTranscripts(URL)`, `failed(String)`), performing loads off the main thread and exposing `refresh(force:)`. **The store owns no timer.** A timer inside it could not be tested without waiting thirty seconds; the caller ticks it instead, which also keeps the refresh policy visible in the UI. A failed refresh keeps the events already on screen and records `lastError`, rather than replacing real numbers with an error.
+- [x] 6.2 Add `BlockConfig` as a flat `Codable` struct (`id`, `type`, and the parameters a type uses) and `Layout` (`version`, `blocks`). Flat rather than an enum with associated values, because `layout.json` is edited by hand and a tagged union reads badly as JSON.
+- [x] 6.3 Write failing tests for layout decoding: a valid document round-trips; an unknown block `type` is skipped and named rather than throwing; an unknown *parameter* value skips its block and names the type; a malformed document throws. Implement.
+- [x] 6.4 Implement `LayoutStore`: read from `~/Library/Application Support/ClaudeStats/layout.json`, write on every mutation, move a malformed file aside and fall back to the default layout, create missing directories. `load()` never throws. A second breakage does not overwrite the first backup: it becomes `layout.json.bak2`, because a backup may hold the only copy of a dashboard the user built.
+- [x] 6.5 Define the default layout: a `bigNumber` on `inputOutput`/`last7Days`, a `timeSeries` on `inputOutput`/`last30Days`/`day`, breakdowns by `model`, `project` and `tool`, and a `sessionList`. Covered by a test asserting the default exercises every block type.
 
 ## 7. User Interface
 

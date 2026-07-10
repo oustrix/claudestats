@@ -5,7 +5,7 @@ import Foundation
 /// Cache reads dominate a real corpus — over 90% of all tokens — so `allTokens` is, to within
 /// rounding, a chart of cache reads. That is why the metric is a block parameter and not a global
 /// choice. See openspec `design.md`, "Cache tokens dominate".
-public enum Metric: String, CaseIterable, Sendable {
+public enum Metric: String, Codable, CaseIterable, Sendable {
     case inputOutput
     case cacheRead
     case cacheCreation
@@ -15,7 +15,7 @@ public enum Metric: String, CaseIterable, Sendable {
 }
 
 /// How far back a block looks, counted in whole local calendar days.
-public enum Timeframe: String, CaseIterable, Sendable {
+public enum Timeframe: String, Codable, CaseIterable, Sendable {
     case last7Days
     case last30Days
     case allTime
@@ -31,7 +31,7 @@ public enum Timeframe: String, CaseIterable, Sendable {
 }
 
 /// The width of one point on a time series.
-public enum Bucket: String, CaseIterable, Sendable {
+public enum Bucket: String, Codable, CaseIterable, Sendable {
     case day
     case hour
 
@@ -55,7 +55,7 @@ public enum Bucket: String, CaseIterable, Sendable {
 }
 
 /// What a breakdown block groups by.
-public enum Dimension: String, CaseIterable, Sendable {
+public enum Dimension: String, Codable, CaseIterable, Sendable {
     case model
     case project
     case tool
