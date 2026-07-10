@@ -54,8 +54,9 @@ public enum Bucket: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// What a breakdown block groups by.
-public enum Dimension: String, Codable, CaseIterable, Sendable {
+/// What a breakdown block groups by. Named for the breakdown rather than plain `Dimension`,
+/// which would collide with Foundation's unit-of-measurement type at every call site.
+public enum BreakdownDimension: String, Codable, CaseIterable, Sendable {
     case model
     case project
     case tool

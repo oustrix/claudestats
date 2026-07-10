@@ -17,12 +17,12 @@ public struct BlockConfig: Codable, Equatable, Identifiable, Sendable {
     public var metric: Metric?
     public var timeframe: Timeframe
     public var bucket: Bucket?
-    public var dimension: Dimension?
+    public var dimension: BreakdownDimension?
     public var limit: Int?
 
     public init(
         id: UUID = UUID(), type: BlockType, metric: Metric? = nil, timeframe: Timeframe,
-        bucket: Bucket? = nil, dimension: Dimension? = nil, limit: Int? = nil
+        bucket: Bucket? = nil, dimension: BreakdownDimension? = nil, limit: Int? = nil
     ) {
         self.id = id
         self.type = type
@@ -37,7 +37,7 @@ public struct BlockConfig: Codable, Equatable, Identifiable, Sendable {
 /// A block the layout named but this build could not render. The two cases call for different
 /// answers from the user, so they are not flattened into one: an unknown type means the config was
 /// written by a newer build, while unreadable parameters mean a typo this build can point at.
-public enum SkippedBlock: Equatable, Sendable {
+public enum SkippedBlock: Hashable, Sendable {
     /// The `type` string is not in this build's catalog. Carries the raw string.
     case unknownType(String)
     /// The type is known, but one of its parameters is not a value this build understands.

@@ -48,7 +48,11 @@ and renders token-usage statistics as a configurable dashboard. Spec and rationa
   (Conversation with the user is in Russian.)
 - Commits: Conventional Commits, one line, no body, no `Co-Authored-By`. Scopes: `core`, `app`,
   `spec`, `make`.
-- TDD: write the failing test, watch it fail for the right reason, then implement. Cross-check any
-  counting change against `ccusage` on a *snapshot* of the corpus (a live transcript grows mid-read).
+- TDD: write the failing test, watch it fail for the right reason, then implement.
+- **After any significant change, and before every commit, cross-check the token counts against BOTH
+  `ccusage` AND an independent `jq` pass** over a *snapshot* of the corpus (a live transcript grows
+  mid-read). All four counters plus the total must agree to the unit; a mismatch is a bug to fix
+  before committing. `jq` mirroring the code's own logic can't catch a wrong rule — `ccusage` is the
+  truly independent check, and it is what once exposed the 8% output undercount.
 - App Sandbox is off (a sandboxed app can't read `~/.claude`); no Mac App Store, unsigned first launch.
 - `.gitignore` overrides a global one that hides `openspec/` and `.claude/` — both are versioned here.

@@ -54,13 +54,14 @@
 
 ## 7. User Interface
 
-- [ ] 7.1 Add the app entry point, a single window, and a toolbar carrying a refresh control and the parsed/skipped record counts.
-- [ ] 7.2 Render the loaded, loading, failed and missing-transcripts states; the missing-transcripts state explains itself rather than showing zeros.
-- [ ] 7.3 Implement `BigNumberBlockView` and `TimeSeriesBlockView` with Swift Charts, plotting one point per bucket including empty buckets.
-- [ ] 7.4 Implement `BreakdownBlockView` as a ranked bar list; project rows show the short name with the full path on hover.
-- [ ] 7.5 Implement `SessionListBlockView` showing project, start time, duration and token totals, newest first.
-- [ ] 7.6 Implement block editing: an add-block menu over the catalog, per-block removal, drag-to-reorder, and a parameter popover per block type. Every mutation persists the layout.
-- [ ] 7.7 Render a notice listing any block types skipped from the layout file.
+- [x] 7.1 Add the app entry point, a single window, and a toolbar carrying a refresh control and the parsed/skipped record counts. The 30-second timer lives in the view's `.task`, not in the store: a policy you can see is a policy you can change.
+- [x] 7.2 Render the loaded, loading, failed and missing-transcripts states; the missing-transcripts state explains itself rather than showing zeros.
+- [x] 7.3 Implement `BigNumberBlockView` and `TimeSeriesBlockView`. The headline is not a chart — one number has no shape to see. The time series is bars, not a line: the data is a count per discrete bucket, and a line would draw values for the moments between days that never existed. One series, so no legend and one hue; the exact figure sits behind a hover, so the headline stays readable.
+- [x] 7.4 Implement `BreakdownBlockView` as a ranked bar list, horizontal because the labels are words and a vertical axis would tilt `claude-haiku-4-5-20251001` into illegibility. Bars are drawn as a proportion of the largest row. One hue for every row: rank is already encoded by position, and colouring by rank would repaint the survivors whenever a filter changed the order. Project rows show the short name with the full path on hover.
+- [x] 7.5 Implement `SessionListBlockView` showing project, start time, span and token totals, newest first. The span counts breaks: the transcripts hold nothing that would let it not to, so it is labelled a span rather than active time.
+- [x] 7.6 Implement block editing: an add-block menu over the catalog, per-block removal, reordering, and a parameter popover per block type that offers only the parameters that type uses. Every mutation persists the layout. Reordering is by buttons rather than drag — a drag inside a scrolling column of charts fights the scroll — which also means each persist follows a discrete action and needs no debounce.
+- [x] 7.7 Render a notice listing any blocks skipped from the layout file, distinguishing an unknown block type from unreadable parameters, and report a layout that could not be written.
+- [x] 7.8 Rename `Dimension` to `BreakdownDimension`. Foundation ships a unit-of-measurement type by that name, and the collision forced a qualification at every call site.
 
 ## 8. Packaging
 

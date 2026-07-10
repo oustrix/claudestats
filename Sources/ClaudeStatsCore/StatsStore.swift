@@ -5,6 +5,10 @@ import Observation
 ///
 /// The store owns no timer. A caller ticks it, which keeps the refresh policy in the UI where it
 /// can be seen, and keeps the store testable without waiting thirty seconds.
+///
+/// Main-actor isolated: this is interface state, read by views. The reading of transcripts, which
+/// is the only slow part, is handed to a detached task.
+@MainActor
 @Observable
 public final class StatsStore {
     public enum State: Equatable, Sendable {

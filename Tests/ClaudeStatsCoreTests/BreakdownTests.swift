@@ -88,7 +88,7 @@ private func event(
 }
 
 @Test func breakdownOverNoEventsIsEmpty() {
-    for dimension in Dimension.allCases {
+    for dimension in BreakdownDimension.allCases {
         #expect(Aggregation.breakdown(dimension, metric: .allTokens, over: [], limit: 5, home: home).isEmpty)
     }
 }

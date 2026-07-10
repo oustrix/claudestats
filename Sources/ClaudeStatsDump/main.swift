@@ -55,8 +55,7 @@ if let ratio = audit.ratio {
     print("\nnaive line-sum of input+output: \(audit.naiveLineSum.formatted())  (\(times)x the true total)")
 }
 
-// `Dimension` is qualified: Foundation ships a unit-of-measurement type by the same name.
-func printBreakdown(_ title: String, _ dimension: ClaudeStatsCore.Dimension, metric: Metric) {
+func printBreakdown(_ title: String, _ dimension: BreakdownDimension, metric: Metric) {
     heading(title)
     let rows = Aggregation.breakdown(dimension, metric: metric, over: events, limit: 15, home: home)
     guard !rows.isEmpty else {

@@ -1,12 +1,12 @@
-import ClaudeStatsCore
 import SwiftUI
 
 @main
 struct ClaudeStatsApp: App {
     var body: some Scene {
         WindowGroup("ClaudeStats") {
-            Text("ClaudeStats \(ClaudeStats.version)")
-                .frame(minWidth: 800, minHeight: 600)
+            DashboardView()
+                .frame(minWidth: 720, minHeight: 520)
         }
+        .defaultSize(width: 900, height: 720)
     }
 }

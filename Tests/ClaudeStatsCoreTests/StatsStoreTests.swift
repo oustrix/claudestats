@@ -27,11 +27,11 @@ private func scan(_ events: [TranscriptEvent]) -> (result: ScanResult, state: Fi
     (ScanResult(events: events, skippedLines: 0, unreadableFiles: []), FileScanState.capture(files: []))
 }
 
-@Test func aFreshStoreHasNotLoadedAnything() {
+@MainActor @Test func aFreshStoreHasNotLoadedAnything() {
     #expect(StatsStore(source: ScriptedSource()).state == .idle)
 }
 
-@Test func refreshPublishesTheLoadedEvents() async throws {
+@MainActor @Test func refreshPublishesTheLoadedEvents() async throws {
     let source = ScriptedSource()
     source.answers = [.success(scan([makeEvent(messageID: "a")]))]
     let store = StatsStore(source: source)
@@ -46,7 +46,7 @@ private func scan(_ events: [TranscriptEvent]) -> (result: ScanResult, state: Fi
 }
 
 /// The whole point of the scan state: when nothing changed, the previous events stay put.
-@Test func anUnchangedScanLeavesTheLoadedEventsAlone() async throws {
+@MainActor @Test func anUnchangedScanLeavesTheLoadedEventsAlone() async throws {
     let source = ScriptedSource()
     source.answers = [.success(scan([makeEvent(messageID: "a")])), .success(nil)]
     let store = StatsStore(source: source)
@@ -63,7 +63,7 @@ private func scan(_ events: [TranscriptEvent]) -> (result: ScanResult, state: Fi
 }
 
 /// An explicit refresh forgets what it knew, so the source cannot answer "nothing changed".
-@Test func anExplicitRefreshForcesAReparse() async throws {
+@MainActor @Test func anExplicitRefreshForcesAReparse() async throws {
     let source = ScriptedSource()
     source.answers = [.success(scan([])), .success(scan([]))]
     let store = StatsStore(source: source)
@@ -75,7 +75,7 @@ private func scan(_ events: [TranscriptEvent]) -> (result: ScanResult, state: Fi
 }
 
 /// A periodic refresh passes what it last saw, so an unchanged tree costs no parsing.
-@Test func aPeriodicRefreshRemembersTheLastScanState() async throws {
+@MainActor @Test func aPeriodicRefreshRemembersTheLastScanState() async throws {
     let source = ScriptedSource()
     source.answers = [.success(scan([])), .success(nil)]
     let store = StatsStore(source: source)
@@ -86,7 +86,7 @@ private func scan(_ events: [TranscriptEvent]) -> (result: ScanResult, state: Fi
     #expect(source.lastKnownState != .some(nil))
 }
 
-@Test func aMissingTranscriptRootIsItsOwnState() async {
+@MainActor @Test func aMissingTranscriptRootIsItsOwnState() async {
     let source = ScriptedSource()
     let missing = URL(filePath: "/nowhere")
     source.answers = [.failure(EventSourceError.rootNotFound(missing))]
@@ -98,7 +98,7 @@ private func scan(_ events: [TranscriptEvent]) -> (result: ScanResult, state: Fi
 }
 
 /// Any other failure is reported, never rendered as zeros.
-@Test func aFailureIsSurfacedRatherThanShownAsZeroUsage() async {
+@MainActor @Test func aFailureIsSurfacedRatherThanShownAsZeroUsage() async {
     struct Boom: Error {}
     let source = ScriptedSource()
     source.answers = [.failure(Boom())]
@@ -113,7 +113,7 @@ private func scan(_ events: [TranscriptEvent]) -> (result: ScanResult, state: Fi
 }
 
 /// A failure after a successful load must not erase the numbers already on screen.
-@Test func aFailedRefreshKeepsTheEventsAlreadyLoaded() async {
+@MainActor @Test func aFailedRefreshKeepsTheEventsAlreadyLoaded() async {
     struct Boom: Error {}
     let source = ScriptedSource()
     source.answers = [.success(scan([makeEvent(messageID: "a")])), .failure(Boom())]

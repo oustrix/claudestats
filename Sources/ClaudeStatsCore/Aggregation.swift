@@ -89,7 +89,7 @@ public enum Aggregation {
     /// messages, tool invocations over every block. `tool` therefore ignores the metric, because
     /// tokens cannot be attributed to an individual tool call.
     public static func breakdown(
-        _ dimension: Dimension, metric: Metric, over events: [TranscriptEvent], limit: Int,
+        _ dimension: BreakdownDimension, metric: Metric, over events: [TranscriptEvent], limit: Int,
         home: String
     ) -> [BreakdownRow] {
         let rows: [BreakdownRow]
