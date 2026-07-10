@@ -15,15 +15,15 @@
 - [x] 2.6 Implement `FileEventSource`: recursive `.jsonl` discovery under an injectable root, line-by-line decode via a `Decodable` shape matching only the needed fields, skipped-line counting. A user turn carries a `message` with no `id` or `model` and a bare string `content`; decoding tolerates that, so a well-formed user record is ignored rather than counted as a skipped line.
 - [x] 2.7 Write failing tests for a missing root (empty-state condition, distinguishable from zero usage) and an empty root (zero events, zero skips); implement both.
 - [x] 2.8 Add `FileScanState` recording each file's `mtime` and size; write failing tests for "nothing changed → no reparse", "file appended → reparse", "explicit refresh → always reparse"; implement.
-- [x] 2.9 Add an opt-in check (`REAL_CORPUS=<dir> swift test --filter realCorpusSanityCheck`) that runs the parser over a real corpus and prints counts for cross-checking against `jq`.
+- [x] 2.9 Cross-check the parser against a snapshot of a real corpus using an independent `jq` pass. Superseded by `make dump` (task 5.1), which prints the same counts through the production aggregation; the temporary in-test harness was removed rather than maintained as a second audit path.
 
 ## 3. Deduplication and Counting
 
 - [x] 3.1 Write a failing test proving a message split across two content-block lines contributes its `usage` exactly once, and that its two `tool_use` blocks contribute two tool invocations.
 - [x] 3.2 Write a failing test proving distinct `messageID` values are never merged, including when `requestID` is absent on both.
-- [x] 3.3 Implement `deduplicatedMessages(from:)` keyed on `(messageID, requestID)`, keeping the first occurrence, and `toolInvocations(from:)` counting every `tool_use` block.
+- [x] 3.3 Implement `Counting.messages(from:)` keyed on `(messageID, requestID)`, and `Counting.toolInvocations(from:)` counting every `tool_use` block. Which line's counters win was settled later, in task 5.3: the line bearing a `stop_reason`.
 - [x] 3.4 Add a regression test asserting the naive line-sum and the deduplicated sum differ on the split-message fixture, so a future refactor cannot silently reintroduce the inflation.
-- [x] 3.5 Cross-check the deduplicated per-counter totals against an independent `jq` computation over a snapshot of the real corpus. Both agree exactly (1 468 messages; input 993 055, output 965 252, cache creation 4 059 971, cache read 106 841 186); naive line-summing inflates input+output by 2.36x.
+- [x] 3.5 Cross-check the deduplicated per-counter totals against an independent `jq` computation over a snapshot of the real corpus. Both agreed exactly on the rule as written at the time. The rule itself turned out to be wrong — see task 5.3, where `ccusage` exposed an 8% output undercount that a `jq` pass mirroring the same wrong rule could never reveal.
 
 ## 4. Aggregation
 
@@ -41,7 +41,7 @@
 - [x] 5.0 Surface unreadable files, not just malformed lines. `FileEventSource` skipped a file it could not open without counting it, so a permissions error or a non-UTF-8 transcript would silently drop all of that file's events. `ScanResult` now carries `unreadableFiles` beside `skippedLines`, covered by tests for a permission-denied file and a non-UTF-8 file.
 - [x] 5.1 Implement `make dump` as a separate `ClaudeStatsDump` executable: per-counter totals, per-model, per-project and per-tool breakdowns, session count, parsed lines, skipped lines and unreadable files. Also prints the naive line-sum and its ratio to the true total.
 - [x] 5.2 Cross-check `make dump` totals against an independent `jq` computation over a snapshot of the corpus. Both agree on every counter. A snapshot is required: a live transcript grows while it is measured.
-- [x] 5.3 Cross-check against `ccusage` (`CLAUDE_CONFIG_DIR` pointed at the snapshot). **This found a real bug.** Three counters matched; output was 8% low. Claude Code streams a response, writing intermediate lines with a placeholder `output_tokens` of 1; only the last line reports the real count. Deduplication now keeps the last line's counters and the first line's timestamp. All four counters, and the 112 942 871 total, now match `ccusage` exactly.
+- [x] 5.3 Cross-check against `ccusage` (`CLAUDE_CONFIG_DIR` pointed at the snapshot). **This found a real bug.** Three counters matched; output was 8% low. Claude Code streams a response, writing intermediate lines with a placeholder `output_tokens` of 1; only the line that gains a `stop_reason` reports the real count. Deduplication now takes that line's counters and the first line's timestamp — keyed on the stop reason itself, not on position, so reordered or concatenated files cannot reinstate the undercount. All four counters, and the 112 942 871 total, match `ccusage` exactly.
 
 ## 6. Store and Layout
 
