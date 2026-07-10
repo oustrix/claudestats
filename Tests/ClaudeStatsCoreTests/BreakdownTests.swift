@@ -3,6 +3,8 @@ import Testing
 
 @testable import ClaudeStatsCore
 
+private let home = "/Users/me"
+
 private func event(
     _ id: String, model: String = "claude-opus-4-8", cwd: String = "/Users/me/proj",
     input: Int = 0, tools: [String] = []
@@ -20,7 +22,7 @@ private func event(
         event("c", model: "haiku", input: 7),
     ]
 
-    let rows = Aggregation.breakdown(.model, metric: .inputOutput, over: events, limit: 10)
+    let rows = Aggregation.breakdown(.model, metric: .inputOutput, over: events, limit: 10, home: home)
 
     #expect(rows.map(\.label) == ["opus", "haiku"])
     #expect(rows.map(\.value) == [100, 12])
@@ -29,7 +31,7 @@ private func event(
 /// Unknown model identifiers appear as they are, neither classified nor dropped.
 @Test func unknownModelsAreReportedVerbatim() {
     let rows = Aggregation.breakdown(
-        .model, metric: .requests, over: [event("a", model: "gpt-5.5")], limit: 10)
+        .model, metric: .requests, over: [event("a", model: "gpt-5.5")], limit: 10, home: home)
 
     #expect(rows.map(\.label) == ["gpt-5.5"])
 }
@@ -42,7 +44,7 @@ private func event(
         makeEvent(messageID: "m", requestID: "r", model: "opus", usage: usage, toolNames: ["Bash"]),
     ]
 
-    let rows = Aggregation.breakdown(.model, metric: .inputOutput, over: split, limit: 10)
+    let rows = Aggregation.breakdown(.model, metric: .inputOutput, over: split, limit: 10, home: home)
 
     #expect(rows.map(\.value) == [50])
 }
@@ -54,7 +56,7 @@ private func event(
     ]
 
     let rows = Aggregation.breakdown(
-        .project, metric: .inputOutput, over: events, limit: 10, home: "/Users/me")
+        .project, metric: .inputOutput, over: events, limit: 10, home: home)
 
     let row = try #require(rows.first)
     #expect(row.label == "snitch")
@@ -69,8 +71,8 @@ private func event(
         makeEvent(messageID: "m", requestID: "r", toolNames: ["Bash", "Read"]),
     ]
 
-    let byTokens = Aggregation.breakdown(.tool, metric: .inputOutput, over: split, limit: 10)
-    let byRequests = Aggregation.breakdown(.tool, metric: .requests, over: split, limit: 10)
+    let byTokens = Aggregation.breakdown(.tool, metric: .inputOutput, over: split, limit: 10, home: home)
+    let byRequests = Aggregation.breakdown(.tool, metric: .requests, over: split, limit: 10, home: home)
 
     #expect(byTokens.map(\.label) == ["Bash", "Read"])
     #expect(byTokens.map(\.value) == [2, 1])
@@ -80,14 +82,14 @@ private func event(
 @Test func limitTruncatesTheTail() {
     let events = (1...5).map { event("\($0)", model: "m\($0)", input: $0) }
 
-    let rows = Aggregation.breakdown(.model, metric: .inputOutput, over: events, limit: 2)
+    let rows = Aggregation.breakdown(.model, metric: .inputOutput, over: events, limit: 2, home: home)
 
     #expect(rows.map(\.label) == ["m5", "m4"])
 }
 
 @Test func breakdownOverNoEventsIsEmpty() {
     for dimension in Dimension.allCases {
-        #expect(Aggregation.breakdown(dimension, metric: .allTokens, over: [], limit: 5).isEmpty)
+        #expect(Aggregation.breakdown(dimension, metric: .allTokens, over: [], limit: 5, home: home).isEmpty)
     }
 }
 
@@ -95,7 +97,7 @@ private func event(
 @Test func tiesAreBrokenByLabelSoOrderIsStable() {
     let events = [event("a", model: "zebra", input: 1), event("b", model: "alpha", input: 1)]
 
-    let rows = Aggregation.breakdown(.model, metric: .inputOutput, over: events, limit: 10)
+    let rows = Aggregation.breakdown(.model, metric: .inputOutput, over: events, limit: 10, home: home)
 
     #expect(rows.map(\.label) == ["alpha", "zebra"])
 }

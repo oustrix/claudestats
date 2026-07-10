@@ -15,6 +15,11 @@ struct StubEventSource: EventSource {
     func loadEvents() throws -> ScanResult { result }
 }
 
+/// Parses an ISO-8601 instant, trapping on a malformed literal — a test fixture is not input.
+func instant(_ iso: String) -> Date {
+    try! Date.ISO8601FormatStyle(includingFractionalSeconds: false).parse(iso)
+}
+
 /// A scratch transcript directory, removed by the caller's `defer`.
 func makeScratchRoot(_ label: String = "root") throws -> URL {
     let root = URL.temporaryDirectory.appending(path: "claudestats-\(label)-\(UUID().uuidString)")

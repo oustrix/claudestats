@@ -81,6 +81,10 @@ timeframe  ::= last7Days | last30Days | allTime
 
 Blocks hold no state. Each renders a pure function of `(events, parameters)`. Recomputing 1 300 events per block costs microseconds, and in exchange there are no stale caches to invalidate. This is the same trade as re-parsing on every refresh: computing is cheaper than remembering.
 
+**Every aggregation entry point takes raw events**, never `[Message]`, and performs the deduplication itself. Passing messages to some functions and events to others would cost a little less — each breakdown block re-runs the dedup pass — but it would put the caller back in charge of remembering which counting rule applies where. That is the mistake the internal `usage` was introduced to prevent. Microseconds are the price of a caller that cannot get it wrong.
+
+`Aggregation` takes `home` as an explicit parameter rather than calling `NSHomeDirectory()`. A pure function that reads the process environment is not pure, and tests would have to accept whatever machine they run on.
+
 ### Layout is a versioned document the user owns
 
 `~/Library/Application Support/ClaudeStats/layout.json` holds `{"version": 1, "blocks": [...]}`. It is plain JSON, hand-editable. A block of unknown `type` is skipped with a visible notice rather than crashing, so an older build survives a newer config. A malformed file is moved aside to `layout.json.bak` and replaced with the default layout.
