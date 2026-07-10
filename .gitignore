@@ -1,9 +1,9 @@
-# Перебивает ~/.gitignore_global, который прячет эти каталоги во всех репозиториях.
-# Здесь спеки и настройки агента — часть проекта и должны версионироваться.
+# Overrides ~/.gitignore_global, which hides these directories in every repository.
+# Here the specs and the agent configuration are part of the project and must be versioned.
 !openspec/
 !.claude/
 
-# Артефакты сборки
+# Build artifacts
 .build/
 ClaudeStats.app/
 

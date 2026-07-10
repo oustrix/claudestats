@@ -14,8 +14,8 @@ test:
 run:
 	swift run ClaudeStatsApp
 
-# Собирает .app вручную: SPM отдаёт голый бинарник, а macOS нужен бандл с Info.plist,
-# иначе окно не получает фокус и приложение не видно в доке.
+# Assembles the .app by hand: SPM emits a bare executable, and macOS needs a bundle with an
+# Info.plist, otherwise the window never takes focus and the app stays invisible in the Dock.
 app: CONFIG = release
 app: build
 	rm -rf $(APP)
@@ -36,7 +36,7 @@ app: build
 	  '<key>NSHighResolutionCapable</key><true/>' \
 	  '</dict></plist>' \
 	  > $(APP)/Contents/Info.plist
-	@echo "собрано: $(APP)"
+	@echo "built: $(APP)"
 
 clean:
 	rm -rf .build $(APP)

@@ -7,14 +7,15 @@
 
 ## 2. Transcript Ingestion
 
-- [ ] 2.1 Add `TokenUsage` (input, output, cacheCreation, cacheRead) and `TranscriptEvent` (messageID, requestID, timestamp, sessionID, cwd, gitBranch, model, isSidechain, usage, toolNames) as value types in `ClaudeStatsCore`.
-- [ ] 2.2 Add `EventSource` protocol returning a `ScanResult` (events plus skipped-line count), and `StubEventSource` for tests.
-- [ ] 2.3 Write fixtures in `Fixtures/`: a message split across `text` and `tool_use` lines sharing one `usage`; a `<synthetic>` record; a sidechain record; non-assistant records; a malformed line mid-file; a truncated final line; a session crossing midnight; a session whose `cwd` changes.
-- [ ] 2.4 Write failing tests for line-level parsing: assistant records extracted, non-assistant ignored, `<synthetic>` excluded, sidechain retained, timestamps parsed as instants with sub-second precision.
-- [ ] 2.5 Write failing tests for malformed input: mid-file bad line skipped and counted, truncated final line skipped and counted, preceding events preserved, scan never aborts.
-- [ ] 2.6 Implement `FileEventSource`: recursive `.jsonl` discovery under an injectable root, line-by-line decode via a `Decodable` shape matching only the needed fields, skipped-line counting.
-- [ ] 2.7 Write failing tests for a missing root (empty-state condition, distinguishable from zero usage) and an empty root (zero events, zero skips); implement both.
-- [ ] 2.8 Add `FileScanState` recording each file's `mtime` and size; write failing tests for "nothing changed → no reparse", "file appended → reparse", "explicit refresh → always reparse"; implement.
+- [x] 2.1 Add `TokenUsage` (input, output, cacheCreation, cacheRead) and `TranscriptEvent` (messageID, requestID, timestamp, sessionID, cwd, gitBranch, model, isSidechain, usage, toolNames) as value types in `ClaudeStatsCore`.
+- [x] 2.2 Add `EventSource` protocol returning a `ScanResult` (events plus skipped-line count), and `StubEventSource` for tests. `StubEventSource` lives in the test target: the shipped library carries no test scaffolding.
+- [x] 2.3 Write fixtures in `Tests/ClaudeStatsCoreTests/Fixtures/`: a message split across `text` and `tool_use` lines sharing one `usage`; a `<synthetic>` record; a sidechain record; non-assistant records; a malformed line mid-file; a truncated final line; a session crossing midnight; a session whose `cwd` changes. They sit under the test target rather than the repository root because SPM exposes resources through `Bundle.module` only from within a target's directory.
+- [x] 2.4 Write failing tests for line-level parsing: assistant records extracted, non-assistant ignored, `<synthetic>` excluded, sidechain retained, timestamps parsed as instants with sub-second precision.
+- [x] 2.5 Write failing tests for malformed input: mid-file bad line skipped and counted, truncated final line skipped and counted, preceding events preserved, scan never aborts.
+- [x] 2.6 Implement `FileEventSource`: recursive `.jsonl` discovery under an injectable root, line-by-line decode via a `Decodable` shape matching only the needed fields, skipped-line counting. A user turn carries a `message` with no `id` or `model` and a bare string `content`; decoding tolerates that, so a well-formed user record is ignored rather than counted as a skipped line.
+- [x] 2.7 Write failing tests for a missing root (empty-state condition, distinguishable from zero usage) and an empty root (zero events, zero skips); implement both.
+- [x] 2.8 Add `FileScanState` recording each file's `mtime` and size; write failing tests for "nothing changed → no reparse", "file appended → reparse", "explicit refresh → always reparse"; implement.
+- [x] 2.9 Add an opt-in check (`REAL_CORPUS=<dir> swift test --filter realCorpusSanityCheck`) that runs the parser over a real corpus and prints counts for cross-checking against `jq`.
 
 ## 3. Deduplication and Counting
 
