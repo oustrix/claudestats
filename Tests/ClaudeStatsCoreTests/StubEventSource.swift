@@ -8,8 +8,9 @@ import Testing
 struct StubEventSource: EventSource {
     let result: ScanResult
 
-    init(events: [TranscriptEvent], skippedLines: Int = 0) {
-        result = ScanResult(events: events, skippedLines: skippedLines)
+    init(events: [TranscriptEvent], skippedLines: Int = 0, unreadableFiles: [URL] = []) {
+        result = ScanResult(
+            events: events, skippedLines: skippedLines, unreadableFiles: unreadableFiles)
     }
 
     func loadEvents() throws -> ScanResult { result }
@@ -60,6 +61,7 @@ func makeEvent(
     model: String = "claude-opus-4-8",
     isSidechain: Bool = false,
     usage: TokenUsage = TokenUsage(input: 1, output: 2, cacheCreation: 3, cacheRead: 4),
+    stopReason: String? = nil,
     toolNames: [String] = []
 ) -> TranscriptEvent {
     TranscriptEvent(
@@ -72,6 +74,7 @@ func makeEvent(
         model: model,
         isSidechain: isSidechain,
         usage: usage,
+        stopReason: stopReason,
         toolNames: toolNames
     )
 }

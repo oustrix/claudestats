@@ -15,7 +15,10 @@ public struct Message: Equatable, Sendable {
     public let gitBranch: String?
     public let model: String
     public let isSidechain: Bool
-    public let usage: TokenUsage
+    /// Settable within the module only: `Counting` replaces it when a response's final line arrives.
+    public internal(set) var usage: TokenUsage
+    /// Whether `usage` came from the line that ended the response, rather than a streaming placeholder.
+    var usageIsFinal: Bool
 
     init(_ event: TranscriptEvent) {
         messageID = event.messageID
@@ -27,23 +30,26 @@ public struct Message: Equatable, Sendable {
         model = event.model
         isSidechain = event.isSidechain
         usage = event.usage
+        usageIsFinal = event.stopReason != nil
     }
 
-    private init(_ other: Message, usage: TokenUsage) {
-        messageID = other.messageID
-        requestID = other.requestID
-        timestamp = other.timestamp
-        sessionID = other.sessionID
-        cwd = other.cwd
-        gitBranch = other.gitBranch
-        model = other.model
-        isSidechain = other.isSidechain
-        self.usage = usage
+    /// Folds a further line of the same response into this message. The timestamp and working
+    /// directory stay as the first line reported them, because that is when the response began.
+    ///
+    /// Token counts are taken from the line that ended the response — the one bearing a
+    /// `stop_reason`. Until such a line appears, the newest line wins, so an interrupted response
+    /// still reports the last figures it managed to emit.
+    mutating func merge(_ event: TranscriptEvent) {
+        let lineIsFinal = event.stopReason != nil
+        guard lineIsFinal || !usageIsFinal else { return }
+        usage = event.usage
+        usageIsFinal = lineIsFinal || usageIsFinal
     }
 
-    /// A response begins when its first line is written, but its token counts are only final on the
-    /// last. So the timestamp comes from the first line and the usage from the last.
-    func withFinalUsage(from event: TranscriptEvent) -> Message {
-        Message(self, usage: event.usage)
+    public static func == (lhs: Message, rhs: Message) -> Bool {
+        lhs.messageID == rhs.messageID && lhs.requestID == rhs.requestID
+            && lhs.timestamp == rhs.timestamp && lhs.sessionID == rhs.sessionID
+            && lhs.cwd == rhs.cwd && lhs.gitBranch == rhs.gitBranch && lhs.model == rhs.model
+            && lhs.isSidechain == rhs.isSidechain && lhs.usage == rhs.usage
     }
 }

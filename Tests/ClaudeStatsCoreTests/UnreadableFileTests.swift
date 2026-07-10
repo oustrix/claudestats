@@ -23,7 +23,7 @@ private let oneEvent = assistantJSONLine(messageID: "m", content: "[]")
     let result = try FileEventSource(root: root).loadEvents()
 
     #expect(result.events.count == 1)
-    #expect(result.unreadableFiles == 1)
+    #expect(result.unreadableFiles.map(\.lastPathComponent) == ["denied.jsonl"])
     #expect(result.skippedLines == 0)
 }
 
@@ -37,7 +37,7 @@ private let oneEvent = assistantJSONLine(messageID: "m", content: "[]")
     let result = try FileEventSource(root: root).loadEvents()
 
     #expect(result.events.isEmpty)
-    #expect(result.unreadableFiles == 1)
+    #expect(result.unreadableFiles.map(\.lastPathComponent) == ["binary.jsonl"])
 }
 
 @Test func readableFilesReportNoUnreadableCount() throws {
@@ -45,5 +45,5 @@ private let oneEvent = assistantJSONLine(messageID: "m", content: "[]")
     defer { try? FileManager.default.removeItem(at: root) }
     try (oneEvent + "\n").write(to: root.appending(path: "a.jsonl"), atomically: true, encoding: .utf8)
 
-    #expect(try FileEventSource(root: root).loadEvents().unreadableFiles == 0)
+    #expect(try FileEventSource(root: root).loadEvents().unreadableFiles.isEmpty)
 }

@@ -42,6 +42,9 @@ public struct TranscriptEvent: Equatable, Sendable {
     public let model: String
     public let isSidechain: Bool
     let usage: TokenUsage
+    /// Present only on the line that ends a response. Claude Code streams: every earlier line of the
+    /// same response reports a placeholder `output_tokens`, so this is how the real count is found.
+    let stopReason: String?
     /// Counted per block, never deduplicated: two lines of one response, each with a tool block,
     /// are two real invocations.
     public let toolNames: [String]

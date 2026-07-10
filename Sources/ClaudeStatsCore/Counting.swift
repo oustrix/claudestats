@@ -14,10 +14,10 @@ public enum Counting {
     /// Collapses the lines of each response into one `Message`. This is the only way a `Message` —
     /// and therefore a token count — is made.
     ///
-    /// The **last** line of a response wins. Claude Code streams: intermediate lines carry a
-    /// placeholder `output_tokens` of 1, and only the final line, the one that gains a
-    /// `stop_reason`, reports the real count. Keeping the first line undercounts output by roughly
-    /// 8% on a real corpus. The other three counters are identical across a response's lines.
+    /// Token counts come from the line bearing a `stop_reason`. Claude Code streams: every earlier
+    /// line of a response reports a placeholder `output_tokens` of 1, and taking one of those
+    /// undercounts output by roughly 8% on a real corpus. The other three counters are identical
+    /// across a response's lines.
     ///
     /// Order follows each response's first appearance, so the sequence still reads chronologically.
     public static func messages(from events: [TranscriptEvent]) -> [Message] {
@@ -28,7 +28,7 @@ public enum Counting {
         for event in events {
             let key = MessageKey(messageID: event.messageID, requestID: event.requestID)
             if let position = positions[key] {
-                messages[position] = messages[position].withFinalUsage(from: event)
+                messages[position].merge(event)
             } else {
                 positions[key] = messages.count
                 messages.append(Message(event))
@@ -44,9 +44,9 @@ public enum Counting {
     }
 
     /// The wrong answer, on purpose: sums `input + output` once per *line*, double-counting every
-    /// response written across several. Exists so an audit can print how far off the naive count
-    /// is. Never use it for a number a user reads as their usage.
-    public static func naiveLineSumOfInputAndOutput(_ events: [TranscriptEvent]) -> Int {
+    /// response written across several. Internal, so that no caller outside the module can mistake
+    /// it for a usage figure. It reaches an audit only through `Aggregation.inflationAudit`.
+    static func naiveLineSumOfInputAndOutput(_ events: [TranscriptEvent]) -> Int {
         events.reduce(0) { $0 + $1.usage.input + $1.usage.output }
     }
 }

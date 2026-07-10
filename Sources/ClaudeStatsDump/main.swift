@@ -16,11 +16,13 @@ let root =
 let result: ScanResult
 do {
     result = try FileEventSource(root: root).loadEvents()
-} catch EventSourceError.rootNotFound(let missing) {
-    FileHandle.standardError.write("no transcripts found at \(missing.path())\n".data(using: .utf8)!)
-    exit(1)
 } catch {
-    FileHandle.standardError.write("could not read transcripts: \(error)\n".data(using: .utf8)!)
+    let reason =
+        switch error {
+        case EventSourceError.rootNotFound(let missing): "no transcripts found at \(missing.path())"
+        default: "could not read transcripts: \(error)"
+        }
+    FileHandle.standardError.write(Data("\(reason)\n".utf8))
     exit(1)
 }
 
@@ -34,7 +36,10 @@ func heading(_ text: String) {
 print("root: \(root.path())")
 print("lines parsed:     \(events.count)")
 print("lines skipped:    \(result.skippedLines)")
-print("files unreadable: \(result.unreadableFiles)")
+print("files unreadable: \(result.unreadableFiles.count)")
+for file in result.unreadableFiles {
+    print("  ! \(file.path())")
+}
 
 heading("Tokens (deduplicated per message)")
 print("requests:       \(Aggregation.total(.requests, over: events).formatted())")
@@ -44,11 +49,10 @@ print("cache read:     \(Aggregation.total(.cacheRead, over: events).formatted()
 print("all tokens:     \(Aggregation.total(.allTokens, over: events).formatted())")
 
 // The number this whole project exists to get right: summing lines instead of messages.
-let naive = Counting.naiveLineSumOfInputAndOutput(events)
-let honest = Aggregation.total(.inputOutput, over: events)
-if honest > 0 {
-    let ratio = (Double(naive) / Double(honest)).formatted(.number.precision(.fractionLength(2)))
-    print("\nnaive line-sum of input+output: \(naive.formatted())  (\(ratio)x the true total)")
+let audit = Aggregation.inflationAudit(over: events)
+if let ratio = audit.ratio {
+    let times = ratio.formatted(.number.precision(.fractionLength(2)))
+    print("\nnaive line-sum of input+output: \(audit.naiveLineSum.formatted())  (\(times)x the true total)")
 }
 
 // `Dimension` is qualified: Foundation ships a unit-of-measurement type by the same name.

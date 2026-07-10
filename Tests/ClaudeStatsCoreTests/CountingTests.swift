@@ -79,6 +79,32 @@ private let splitMessage = [
     #expect(Counting.toolInvocations(from: events) == ["Bash", "Read", "Edit"])
 }
 
+/// The final line is the one that carries a `stop_reason`, not merely the one written last.
+/// Position is a proxy; the stop reason is the fact. If lines ever arrive out of order, the proxy
+/// would silently pick the placeholder and restore the 8% undercount.
+@Test func theFinalUsageIsFoundByStopReasonNotByPosition() throws {
+    let placeholder = TokenUsage(input: 8, output: 1, cacheCreation: 0, cacheRead: 100)
+    let final = TokenUsage(input: 8, output: 913, cacheCreation: 0, cacheRead: 100)
+    let outOfOrder = [
+        makeEvent(messageID: "m", requestID: "r", usage: final, stopReason: "tool_use"),
+        makeEvent(messageID: "m", requestID: "r", usage: placeholder),
+    ]
+
+    #expect(try #require(Counting.messages(from: outOfOrder).first).usage == final)
+}
+
+/// An interrupted response never gains a stop reason. Its last line is still the best we have.
+@Test func aResponseWithoutAStopReasonFallsBackToItsLastLine() throws {
+    let first = TokenUsage(input: 1, output: 1, cacheCreation: 0, cacheRead: 0)
+    let last = TokenUsage(input: 1, output: 40, cacheCreation: 0, cacheRead: 0)
+    let events = [
+        makeEvent(messageID: "m", requestID: "r", usage: first),
+        makeEvent(messageID: "m", requestID: "r", usage: last),
+    ]
+
+    #expect(try #require(Counting.messages(from: events).first).usage == last)
+}
+
 /// A response begins when its first line is written. Only its token counts come from the last.
 @Test func deduplicationKeepsTheTimestampOfTheFirstLine() throws {
     let started = Date(timeIntervalSince1970: 1_000)

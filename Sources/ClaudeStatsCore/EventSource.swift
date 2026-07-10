@@ -8,9 +8,11 @@ import Foundation
 public struct ScanResult: Equatable, Sendable {
     public let events: [TranscriptEvent]
     public let skippedLines: Int
-    public let unreadableFiles: Int
+    /// Which transcripts could not be opened — named, not merely counted, so the user can act on a
+    /// permissions problem instead of wondering which numbers are missing.
+    public let unreadableFiles: [URL]
 
-    public init(events: [TranscriptEvent], skippedLines: Int, unreadableFiles: Int = 0) {
+    public init(events: [TranscriptEvent], skippedLines: Int, unreadableFiles: [URL]) {
         self.events = events
         self.skippedLines = skippedLines
         self.unreadableFiles = unreadableFiles
@@ -68,7 +70,7 @@ public struct FileEventSource: EventSource {
     private func parse(files: [URL]) -> ScanResult {
         var events: [TranscriptEvent] = []
         var skippedLines = 0
-        var unreadableFiles = 0
+        var unreadableFiles: [URL] = []
         // One decoder for the whole scan: a fresh one per line would cost thousands of allocations.
         let decoder = JSONDecoder()
 
@@ -77,7 +79,7 @@ public struct FileEventSource: EventSource {
                 // Permissions, a transient IO error, or bytes that are not UTF-8. Whatever the
                 // cause, every response this file held is now missing from the totals — and the
                 // user must be told, or the numbers lie.
-                unreadableFiles += 1
+                unreadableFiles.append(file)
                 continue
             }
             for line in contents.split(separator: "\n", omittingEmptySubsequences: true) {

@@ -45,6 +45,7 @@
 
 ## 6. Store and Layout
 
+- [ ] 6.0 Every `Aggregation` entry point deduplicates internally, which is right for correctness and cheap for a one-shot dump. A dashboard is not one-shot: six blocks re-running the dedup on every re-render, timeframe toggle and hover would repeat the whole pass each time. Have `StatsStore` hold the events once and confirm, by measurement rather than assumption, that per-block recomputation stays imperceptible before adding any cache.
 - [ ] 6.1 Add `StatsStore` as an `@Observable` holding load state (`idle`, `loading`, `loaded(ScanResult)`, `failed(Error)`), performing loads off the main thread, exposing `refresh()` and driving a 30-second timer that consults `FileScanState`.
 - [ ] 6.2 Add `BlockConfig` as a `Codable` sum of the four block types with their parameters, and `Layout` (`version`, `blocks`).
 - [ ] 6.3 Write failing tests for layout decoding: a valid document round-trips; an unknown block `type` is skipped and named rather than throwing; a malformed document is reported as such. Implement.

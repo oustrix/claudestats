@@ -118,6 +118,18 @@ public enum Aggregation {
                 .prefix(limit))
     }
 
+    /// How far a naive per-line sum of `input + output` strays from the true total. Returned as a
+    /// pair so the wrong number is never handed out on its own, only next to the right one.
+    ///
+    /// `ratio` is `nil` when there is nothing to compare.
+    public static func inflationAudit(over events: [TranscriptEvent]) -> (
+        honest: Int, naiveLineSum: Int, ratio: Double?
+    ) {
+        let honest = total(.inputOutput, over: events)
+        let naive = Counting.naiveLineSumOfInputAndOutput(events)
+        return (honest, naive, honest > 0 ? Double(naive) / Double(honest) : nil)
+    }
+
     // MARK: - Internals
 
     private static func totals<Key: Hashable>(

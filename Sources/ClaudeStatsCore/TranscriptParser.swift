@@ -53,6 +53,7 @@ public enum TranscriptParser {
                     cacheCreation: usage.cache_creation_input_tokens,
                     cacheRead: usage.cache_read_input_tokens
                 ),
+                stopReason: message.stop_reason,
                 toolNames: message.content?.compactMap { $0.type == "tool_use" ? $0.name : nil } ?? []
             )
         )
@@ -91,10 +92,12 @@ private struct RawMessage: Decodable {
     let model: String?
     let content: [RawContentBlock]?
     let usage: RawUsage?
+    /// Non-nil only on the line that ends a response; that line carries the true token counts.
+    let stop_reason: String?
 
     // Writing `init(from:)` by hand switches off the synthesis of `CodingKeys` too, so it stays.
     private enum CodingKeys: String, CodingKey {
-        case id, model, content, usage
+        case id, model, content, usage, stop_reason
     }
 
     init(from decoder: Decoder) throws {
@@ -103,6 +106,7 @@ private struct RawMessage: Decodable {
         model = try container.decodeIfPresent(String.self, forKey: .model)
         content = try? container.decodeIfPresent([RawContentBlock].self, forKey: .content)
         usage = try container.decodeIfPresent(RawUsage.self, forKey: .usage)
+        stop_reason = try? container.decodeIfPresent(String.self, forKey: .stop_reason)
     }
 }
 
