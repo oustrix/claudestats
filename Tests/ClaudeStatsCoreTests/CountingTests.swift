@@ -51,17 +51,47 @@ private let splitMessage = [
     #expect(Counting.messages(from: events).count == 2)
 }
 
-@Test func deduplicationKeepsTheFirstOccurrenceAndItsOrder() {
+@Test func deduplicationPreservesTheOrderOfFirstAppearance() {
     let events = [
-        makeEvent(messageID: "b", requestID: "r", model: "first"),
+        makeEvent(messageID: "b", requestID: "r"),
         makeEvent(messageID: "a", requestID: "r"),
-        makeEvent(messageID: "b", requestID: "r", model: "second"),
+        makeEvent(messageID: "b", requestID: "r"),
     ]
 
-    let messages = Counting.messages(from: events)
+    #expect(Counting.messages(from: events).map(\.messageID) == ["b", "a"])
+}
 
-    #expect(messages.map(\.messageID) == ["b", "a"])
-    #expect(messages.first?.model == "first")
+/// Claude Code streams a response: the intermediate lines carry a placeholder `output_tokens` of 1,
+/// and only the last line — the one that gains a `stop_reason` — carries the final count. Keeping
+/// the first line would undercount output by roughly 8% on a real corpus.
+@Test func deduplicationKeepsTheUsageOfTheLastLine() throws {
+    let placeholder = TokenUsage(input: 8, output: 1, cacheCreation: 0, cacheRead: 100)
+    let final = TokenUsage(input: 8, output: 913, cacheCreation: 0, cacheRead: 100)
+    let events = [
+        makeEvent(messageID: "m", requestID: "r", usage: placeholder, toolNames: ["Bash"]),
+        makeEvent(messageID: "m", requestID: "r", usage: placeholder, toolNames: ["Read"]),
+        makeEvent(messageID: "m", requestID: "r", usage: final, toolNames: ["Edit"]),
+    ]
+
+    let message = try #require(Counting.messages(from: events).first)
+
+    #expect(message.usage == final)
+    #expect(Counting.toolInvocations(from: events) == ["Bash", "Read", "Edit"])
+}
+
+/// A response begins when its first line is written. Only its token counts come from the last.
+@Test func deduplicationKeepsTheTimestampOfTheFirstLine() throws {
+    let started = Date(timeIntervalSince1970: 1_000)
+    let finished = Date(timeIntervalSince1970: 1_005)
+    let events = [
+        makeEvent(messageID: "m", requestID: "r", timestamp: started, cwd: "/first"),
+        makeEvent(messageID: "m", requestID: "r", timestamp: finished, cwd: "/last"),
+    ]
+
+    let message = try #require(Counting.messages(from: events).first)
+
+    #expect(message.timestamp == started)
+    #expect(message.cwd == "/first")
 }
 
 /// The whole reason this module exists. If someone ever "simplifies" the counting back to summing
@@ -75,6 +105,15 @@ private let splitMessage = [
 
     #expect(honest == perLine[0])
     #expect(naive == 2 * honest)
+}
+
+/// The diagnostic exposed for auditing must reproduce the wrong number exactly, or the audit
+/// cannot show how wrong it is.
+@Test func theNaiveLineSumIsAvailableForAuditing() {
+    let perLine = splitMessage[0].usage.input + splitMessage[0].usage.output
+
+    #expect(Counting.naiveLineSumOfInputAndOutput(splitMessage) == 2 * perLine)
+    #expect(Counting.naiveLineSumOfInputAndOutput([]) == 0)
 }
 
 @Test func emptyInputYieldsEmptyOutput() {

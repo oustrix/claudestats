@@ -32,10 +32,14 @@ The alternative — a SQLite cache with incremental tail reads — was rejected.
 
 ### Two counting rules, because the data has two shapes
 
-An assistant message is serialised as one JSONL line per content block. All lines of a message share `message.id`, `requestId` and an identical `usage` object. Verified example: `msg_0111B98NftZ5LKVQGFFTGHDC` appears twice — once with a `text` block, once with a `tool_use` block — both carrying `usage {input: 2, output: 207, cache_creation: 5481, cache_read: 75382}`.
+An assistant message is serialised as one JSONL line per content block. All lines of a message share `message.id` and `requestId`.
 
-- **Token usage** is counted once per distinct `(messageID, requestID)`. Deduplication is by first occurrence; the `usage` objects are identical, so the choice is immaterial.
+**The lines do not carry identical `usage`.** Claude Code streams a response, and the intermediate lines carry a placeholder `output_tokens` of 1; only the final line — the one that gains a `stop_reason` — reports the real count. Verified on `msg_0125uVBXtDioB69mYghBeboJ`, whose four lines report `output` of 1, 1, 1, 913. Across the corpus, 217 of 1 468 responses differ this way; `input`, `cache_creation` and `cache_read` are identical on every line of a response.
+
+- **Token usage** is counted once per distinct `(messageID, requestID)`, taking the **last** line's `usage`. Taking the first undercounts output by 8% (965 252 against a true 1 048 659). The response's timestamp and working directory still come from its first line, because that is when it began.
 - **Tool invocations** are counted once per `tool_use` block, across all lines. Two lines of one message mean two distinct tool calls, and both are real.
+
+Cross-checked against `ccusage` on a snapshot of the same corpus: input 993 055, output 1 048 659, cache creation 4 059 971, cache read 106 841 186, total 112 942 871 — identical on every counter.
 
 Measured effect of getting this wrong: 189 288 158 tokens naive versus 83 457 634 deduplicated, a 2.27× inflation. (A later snapshot, taken while implementing, measured 2.36× on input plus output — the ratio drifts with the corpus, the failure does not.)
 

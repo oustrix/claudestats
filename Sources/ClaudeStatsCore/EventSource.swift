@@ -2,15 +2,18 @@ import Foundation
 
 /// Everything one scan of the transcripts produced.
 ///
-/// `skippedLines` is part of the result, not a side channel: a number the user sees must be able to
-/// say how much of the input it failed to read.
+/// The two failure counts are part of the result, not a side channel: a number the user sees must
+/// be able to say how much of the input it failed to read. A skipped line loses one response; an
+/// unreadable file loses every response it held, which is the more dangerous of the two.
 public struct ScanResult: Equatable, Sendable {
     public let events: [TranscriptEvent]
     public let skippedLines: Int
+    public let unreadableFiles: Int
 
-    public init(events: [TranscriptEvent], skippedLines: Int) {
+    public init(events: [TranscriptEvent], skippedLines: Int, unreadableFiles: Int = 0) {
         self.events = events
         self.skippedLines = skippedLines
+        self.unreadableFiles = unreadableFiles
     }
 }
 
@@ -65,12 +68,16 @@ public struct FileEventSource: EventSource {
     private func parse(files: [URL]) -> ScanResult {
         var events: [TranscriptEvent] = []
         var skippedLines = 0
+        var unreadableFiles = 0
         // One decoder for the whole scan: a fresh one per line would cost thousands of allocations.
         let decoder = JSONDecoder()
 
         for file in files {
             guard let contents = try? String(contentsOf: file, encoding: .utf8) else {
-                // An unreadable file is not a malformed line; it is a file we could not open.
+                // Permissions, a transient IO error, or bytes that are not UTF-8. Whatever the
+                // cause, every response this file held is now missing from the totals — and the
+                // user must be told, or the numbers lie.
+                unreadableFiles += 1
                 continue
             }
             for line in contents.split(separator: "\n", omittingEmptySubsequences: true) {
@@ -84,6 +91,7 @@ public struct FileEventSource: EventSource {
                 }
             }
         }
-        return ScanResult(events: events, skippedLines: skippedLines)
+        return ScanResult(
+            events: events, skippedLines: skippedLines, unreadableFiles: unreadableFiles)
     }
 }

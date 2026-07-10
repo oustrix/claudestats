@@ -3,7 +3,7 @@ APP := ClaudeStats.app
 BUNDLE_ID := com.oustrix.claudestats
 MIN_MACOS := 26.0
 
-.PHONY: build test run app clean
+.PHONY: build test run dump app clean
 
 build:
 	swift build -c $(CONFIG)
@@ -13,6 +13,11 @@ test:
 
 run:
 	swift run ClaudeStatsApp
+
+# Prints the same aggregates the dashboard draws, for cross-checking against ccusage or jq.
+# Pass a different transcript root with: make dump ROOT=/path/to/projects
+dump:
+	@swift run -c release ClaudeStatsDump $(ROOT)
 
 # Assembles the .app by hand: SPM emits a bare executable, and macOS needs a bundle with an
 # Info.plist, otherwise the window never takes focus and the app stays invisible in the Dock.

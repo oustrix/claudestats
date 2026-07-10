@@ -57,11 +57,16 @@ The system SHALL skip any line that is not valid JSON or that lacks required fie
 - **THEN** the reported result carries both the number of parsed records and the number of skipped lines.
 
 ### Requirement: Token usage is deduplicated per message
-The system SHALL treat all events sharing the same `(messageID, requestID)` pair as one billable API response and SHALL count its token usage exactly once. Deduplication SHALL keep the first occurrence encountered.
+The system SHALL treat all events sharing the same `(messageID, requestID)` pair as one billable API response and SHALL count its token usage exactly once, taking the token counters of the **last** such event. The response's timestamp, session and working directory SHALL come from the **first** such event.
 
 #### Scenario: One message split across content blocks
-- **WHEN** an assistant message is written as several JSONL lines, one per content block, each repeating the same `usage` object
+- **WHEN** an assistant message is written as several JSONL lines, one per content block
 - **THEN** the system counts that message's input, output, cache-creation and cache-read tokens exactly once.
+
+#### Scenario: Streaming placeholders are superseded by the final line
+- **WHEN** the intermediate lines of a response report a placeholder `output_tokens` of 1 and its final line reports the real count
+- **THEN** the system counts the final line's token counters
+- **AND** the response is attributed to the timestamp and working directory of its first line.
 
 #### Scenario: Distinct messages are not merged
 - **WHEN** two events carry different `messageID` values

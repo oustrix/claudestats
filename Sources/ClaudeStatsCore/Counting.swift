@@ -11,20 +11,42 @@ public enum Counting {
         let requestID: String?
     }
 
-    /// Collapses the lines of each response into one `Message`, keeping the first line seen and
-    /// preserving order. This is the only way a `Message` — and therefore a token count — is made.
+    /// Collapses the lines of each response into one `Message`. This is the only way a `Message` —
+    /// and therefore a token count — is made.
+    ///
+    /// The **last** line of a response wins. Claude Code streams: intermediate lines carry a
+    /// placeholder `output_tokens` of 1, and only the final line, the one that gains a
+    /// `stop_reason`, reports the real count. Keeping the first line undercounts output by roughly
+    /// 8% on a real corpus. The other three counters are identical across a response's lines.
+    ///
+    /// Order follows each response's first appearance, so the sequence still reads chronologically.
     public static func messages(from events: [TranscriptEvent]) -> [Message] {
-        var seen: Set<MessageKey> = []
-        seen.reserveCapacity(events.count)
-        return events.compactMap { event in
+        var positions: [MessageKey: Int] = [:]
+        positions.reserveCapacity(events.count)
+        var messages: [Message] = []
+
+        for event in events {
             let key = MessageKey(messageID: event.messageID, requestID: event.requestID)
-            return seen.insert(key).inserted ? Message(event) : nil
+            if let position = positions[key] {
+                messages[position] = messages[position].withFinalUsage(from: event)
+            } else {
+                positions[key] = messages.count
+                messages.append(Message(event))
+            }
         }
+        return messages
     }
 
     /// Every `tool_use` block across every line, in order. Never deduplicated: two lines of one
     /// response carrying a tool block each are two real invocations.
     public static func toolInvocations(from events: [TranscriptEvent]) -> [String] {
         events.flatMap(\.toolNames)
+    }
+
+    /// The wrong answer, on purpose: sums `input + output` once per *line*, double-counting every
+    /// response written across several. Exists so an audit can print how far off the naive count
+    /// is. Never use it for a number a user reads as their usage.
+    public static func naiveLineSumOfInputAndOutput(_ events: [TranscriptEvent]) -> Int {
+        events.reduce(0) { $0 + $1.usage.input + $1.usage.output }
     }
 }

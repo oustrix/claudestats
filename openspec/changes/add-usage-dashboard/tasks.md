@@ -38,10 +38,10 @@
 
 ## 5. Verification Against Reality
 
-- [ ] 5.0 Surface unreadable files, not just malformed lines. `FileEventSource` currently skips a file it cannot open without counting it, so a permissions error or a non-UTF-8 transcript would silently drop all of that file's events — the exact swallowed error the design forbids. Add an unreadable-file count to `ScanResult` alongside `skippedLines`, cover it with a test, and show it wherever the skipped-line count is shown.
-- [ ] 5.1 Implement `make dump`: run the core against the real `~/.claude/projects/`, print per-counter totals, per-model and per-project breakdowns, parsed-record and skipped-line counts.
-- [ ] 5.2 Cross-check `make dump` totals against an independent `jq` computation over the same corpus; record the comparison in the change notes. Investigate any discrepancy before proceeding — a mismatch means the parser is wrong.
-- [ ] 5.3 Cross-check per-model request counts against `ccusage`, noting any definitional differences rather than tuning numbers to match.
+- [x] 5.0 Surface unreadable files, not just malformed lines. `FileEventSource` skipped a file it could not open without counting it, so a permissions error or a non-UTF-8 transcript would silently drop all of that file's events. `ScanResult` now carries `unreadableFiles` beside `skippedLines`, covered by tests for a permission-denied file and a non-UTF-8 file.
+- [x] 5.1 Implement `make dump` as a separate `ClaudeStatsDump` executable: per-counter totals, per-model, per-project and per-tool breakdowns, session count, parsed lines, skipped lines and unreadable files. Also prints the naive line-sum and its ratio to the true total.
+- [x] 5.2 Cross-check `make dump` totals against an independent `jq` computation over a snapshot of the corpus. Both agree on every counter. A snapshot is required: a live transcript grows while it is measured.
+- [x] 5.3 Cross-check against `ccusage` (`CLAUDE_CONFIG_DIR` pointed at the snapshot). **This found a real bug.** Three counters matched; output was 8% low. Claude Code streams a response, writing intermediate lines with a placeholder `output_tokens` of 1; only the last line reports the real count. Deduplication now keeps the last line's counters and the first line's timestamp. All four counters, and the 112 942 871 total, now match `ccusage` exactly.
 
 ## 6. Store and Layout
 

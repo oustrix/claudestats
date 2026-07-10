@@ -28,4 +28,22 @@ public struct Message: Equatable, Sendable {
         isSidechain = event.isSidechain
         usage = event.usage
     }
+
+    private init(_ other: Message, usage: TokenUsage) {
+        messageID = other.messageID
+        requestID = other.requestID
+        timestamp = other.timestamp
+        sessionID = other.sessionID
+        cwd = other.cwd
+        gitBranch = other.gitBranch
+        model = other.model
+        isSidechain = other.isSidechain
+        self.usage = usage
+    }
+
+    /// A response begins when its first line is written, but its token counts are only final on the
+    /// last. So the timestamp comes from the first line and the usage from the last.
+    func withFinalUsage(from event: TranscriptEvent) -> Message {
+        Message(self, usage: event.usage)
+    }
 }
