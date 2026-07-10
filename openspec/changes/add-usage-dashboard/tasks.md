@@ -27,14 +27,14 @@
 
 ## 4. Aggregation
 
-- [ ] 4.1 Add `Metric` (`inputOutput`, `cacheRead`, `cacheCreation`, `allTokens`, `requests`), `Dimension` (`model`, `project`, `tool`), `Timeframe` (`last7Days`, `last30Days`, `allTime`) and `Bucket` (`day`, `hour`).
-- [ ] 4.2 Write failing tests for metric arithmetic: `inputOutput` excludes cache counters, `allTokens` sums all four, `requests` counts deduplicated messages not lines; implement `total(_:over:)`.
-- [ ] 4.3 Write failing tests for timeframe filtering against local calendar days, with an injected reference date and timezone; implement `filter(_:timeframe:now:calendar:)`.
-- [ ] 4.4 Write failing tests for daily bucketing: an evening UTC timestamp lands on the correct local day; daily totals sum to the grand total; a midnight-crossing session splits its tokens across two days. Implement `timeSeries(_:bucket:)`.
-- [ ] 4.5 Write failing tests for sessions: attribution to the earliest event's day and `cwd`; a `cwd` change mid-session resolves to the first `cwd`; start and end times come from event timestamps. Implement `sessions(from:)`.
-- [ ] 4.6 Write failing tests for project identity: full `cwd` is the key, display name is the last component, `~` for home, `/a/snitch` and `/b/snitch` stay distinct. Implement `Project` with `id`, `displayName`, `fullPath`.
-- [ ] 4.7 Write failing tests for breakdowns: descending order, limit truncates the tail, unknown model identifiers appear verbatim, `dimension: tool` counts invocations and ignores the metric. Implement `breakdown(dimension:metric:limit:)`.
-- [ ] 4.8 Confirm no file in `ClaudeStatsCore` imports SwiftUI or Charts.
+- [x] 4.1 Add `Metric` (`inputOutput`, `cacheRead`, `cacheCreation`, `allTokens`, `requests`), `Dimension` (`model`, `project`, `tool`), `Timeframe` (`last7Days`, `last30Days`, `allTime`) and `Bucket` (`day`, `hour`).
+- [x] 4.2 Write failing tests for metric arithmetic: `inputOutput` excludes cache counters, `allTokens` sums all four, `requests` counts deduplicated messages not lines; implement `total(_:over:)`.
+- [x] 4.3 Write failing tests for timeframe filtering against local calendar days, with an injected reference date and timezone; implement `filter(_:timeframe:now:calendar:)`. A timeframe spans whole local days, not a rolling 24-hour window.
+- [x] 4.4 Write failing tests for daily bucketing: an evening UTC timestamp lands on the correct local day; daily totals sum to the grand total; a midnight-crossing session splits its tokens across two days; an empty day inside the span appears as a zero rather than being omitted. Implement `timeSeries(_:bucket:)`.
+- [x] 4.5 Write failing tests for sessions: attribution to the earliest event's day and `cwd`; a `cwd` change mid-session resolves to the first `cwd`; start and end times come from event timestamps. Implement `sessions(from:)`.
+- [x] 4.6 Write failing tests for project identity: full `cwd` is the key, display name is the last component, `~` for home, `/a/snitch` and `/b/snitch` stay distinct, and `/Users/median` is not abbreviated as a child of `/Users/me`. Implement `Project` with `fullPath`, `displayName`, `abbreviatedPath`.
+- [x] 4.7 Write failing tests for breakdowns: descending order, ties broken by label so the order never flickers, limit truncates the tail, unknown model identifiers appear verbatim, `dimension: tool` counts invocations and ignores the metric. Implement `breakdown(_:metric:over:limit:)`, which takes raw events and performs the message/block split itself so a caller cannot apply the wrong counting rule.
+- [x] 4.8 Confirm no file in `ClaudeStatsCore` imports SwiftUI or Charts. It imports only `Foundation`.
 
 ## 5. Verification Against Reality
 

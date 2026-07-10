@@ -13,6 +13,17 @@ public struct TokenUsage: Equatable, Sendable {
         self.cacheCreation = cacheCreation
         self.cacheRead = cacheRead
     }
+
+    public static let zero = TokenUsage(input: 0, output: 0, cacheCreation: 0, cacheRead: 0)
+
+    public static func + (lhs: TokenUsage, rhs: TokenUsage) -> TokenUsage {
+        TokenUsage(
+            input: lhs.input + rhs.input,
+            output: lhs.output + rhs.output,
+            cacheCreation: lhs.cacheCreation + rhs.cacheCreation,
+            cacheRead: lhs.cacheRead + rhs.cacheRead
+        )
+    }
 }
 
 /// One JSONL line of `type: "assistant"`, flattened. An event is a line, not an API call: a single
