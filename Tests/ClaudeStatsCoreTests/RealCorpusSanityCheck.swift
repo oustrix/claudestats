@@ -19,11 +19,17 @@ func realCorpusSanityCheck() throws {
         ?? URL.homeDirectory.appending(path: ".claude/projects")
     let result = try FileEventSource(root: root).loadEvents()
 
-    let unique = Set(result.events.map { "\($0.messageID)|\($0.requestID ?? "nil")" })
-    let tools = result.events.flatMap(\.toolNames).count
+    let messages = deduplicatedMessages(from: result.events)
+    let naive = result.events.reduce(0) { $0 + $1.usage.input + $1.usage.output }
+    let honest = messages.reduce(0) { $0 + $1.usage.input + $1.usage.output }
 
     print("EVENTS=\(result.events.count)")
     print("SKIPPED=\(result.skippedLines)")
-    print("UNIQUE_MESSAGES=\(unique.count)")
-    print("TOOL_INVOCATIONS=\(tools)")
+    print("UNIQUE_MESSAGES=\(messages.count)")
+    print("TOOL_INVOCATIONS=\(toolInvocations(from: result.events).count)")
+    print("INPUT=\(messages.reduce(0) { $0 + $1.usage.input })")
+    print("OUTPUT=\(messages.reduce(0) { $0 + $1.usage.output })")
+    print("CACHE_CREATION=\(messages.reduce(0) { $0 + $1.usage.cacheCreation })")
+    print("CACHE_READ=\(messages.reduce(0) { $0 + $1.usage.cacheRead })")
+    print("INFLATION=\(Double(naive) / Double(honest))")
 }

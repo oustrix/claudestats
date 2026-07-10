@@ -19,10 +19,11 @@
 
 ## 3. Deduplication and Counting
 
-- [ ] 3.1 Write a failing test proving a message split across two content-block lines contributes its `usage` exactly once, and that its two `tool_use` blocks contribute two tool invocations.
-- [ ] 3.2 Write a failing test proving distinct `messageID` values are never merged.
-- [ ] 3.3 Implement `deduplicatedMessages(from:)` keyed on `(messageID, requestID)`, keeping the first occurrence, and `toolInvocations(from:)` counting every `tool_use` block.
-- [ ] 3.4 Add a regression test asserting the naive line-sum and the deduplicated sum differ on the split-message fixture, so a future refactor cannot silently reintroduce the inflation.
+- [x] 3.1 Write a failing test proving a message split across two content-block lines contributes its `usage` exactly once, and that its two `tool_use` blocks contribute two tool invocations.
+- [x] 3.2 Write a failing test proving distinct `messageID` values are never merged, including when `requestID` is absent on both.
+- [x] 3.3 Implement `deduplicatedMessages(from:)` keyed on `(messageID, requestID)`, keeping the first occurrence, and `toolInvocations(from:)` counting every `tool_use` block.
+- [x] 3.4 Add a regression test asserting the naive line-sum and the deduplicated sum differ on the split-message fixture, so a future refactor cannot silently reintroduce the inflation.
+- [x] 3.5 Cross-check the deduplicated per-counter totals against an independent `jq` computation over a snapshot of the real corpus. Both agree exactly (1 468 messages; input 993 055, output 965 252, cache creation 4 059 971, cache read 106 841 186); naive line-summing inflates input+output by 2.36x.
 
 ## 4. Aggregation
 
