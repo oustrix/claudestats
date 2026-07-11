@@ -4,10 +4,20 @@ import Testing
 @testable import ClaudeStatsCore
 
 /// A source whose answers the test dictates, so the store can be driven without a filesystem.
+/// Locked, because the store reads through a detached task and the coalescing test calls it from
+/// several at once — an unsynchronised stub would crash on the race rather than fail the assertion.
 private final class ScriptedSource: EventSource, @unchecked Sendable {
-    var answers: [Result<(result: ScanResult, state: FileScanState)?, Error>] = []
-    private(set) var callCount = 0
-    private(set) var lastKnownState: FileScanState??
+    private let lock = NSLock()
+    private var _answers: [Result<(result: ScanResult, state: FileScanState)?, Error>] = []
+    private var _callCount = 0
+    private var _lastKnownState: FileScanState??
+
+    var answers: [Result<(result: ScanResult, state: FileScanState)?, Error>] {
+        get { lock.withLock { _answers } }
+        set { lock.withLock { _answers = newValue } }
+    }
+    var callCount: Int { lock.withLock { _callCount } }
+    var lastKnownState: FileScanState?? { lock.withLock { _lastKnownState } }
 
     func loadEvents() throws -> ScanResult {
         try loadEventsIfChanged(since: nil)!.result
@@ -16,10 +26,12 @@ private final class ScriptedSource: EventSource, @unchecked Sendable {
     func loadEventsIfChanged(since previous: FileScanState?) throws -> (
         result: ScanResult, state: FileScanState
     )? {
-        callCount += 1
-        lastKnownState = previous
-        guard !answers.isEmpty else { return nil }
-        return try answers.removeFirst().get()
+        try lock.withLock {
+            _callCount += 1
+            _lastKnownState = previous
+            guard !_answers.isEmpty else { return nil }
+            return try _answers.removeFirst().get()
+        }
     }
 }
 
@@ -110,6 +122,22 @@ private func scan(_ events: [TranscriptEvent]) -> (result: ScanResult, state: Fi
         Issue.record("expected failed, got \(store.state)")
         return
     }
+}
+
+/// Overlapping refreshes join one scan instead of each launching a redundant parse. Without this,
+/// the several refreshes SwiftUI fires during window setup all read `lastScan == nil` — because it
+/// is written only after a parse finishes — and all reparse the whole corpus.
+@MainActor @Test func concurrentRefreshesCoalesceIntoOneScan() async {
+    let source = ScriptedSource()
+    source.answers = [.success(scan([makeEvent(messageID: "a")]))]
+    let store = StatsStore(source: source)
+
+    async let a: Void = store.refresh()
+    async let b: Void = store.refresh()
+    async let c: Void = store.refresh()
+    _ = await (a, b, c)
+
+    #expect(source.callCount == 1)
 }
 
 /// A failure after a successful load must not erase the numbers already on screen.

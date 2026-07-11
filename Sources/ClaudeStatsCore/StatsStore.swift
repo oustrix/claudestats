@@ -29,6 +29,8 @@ public final class StatsStore {
 
     @ObservationIgnored private let source: any EventSource
     @ObservationIgnored private var lastScan: FileScanState?
+    /// The read in flight, if any. Holding it lets overlapping refreshes join rather than pile up.
+    @ObservationIgnored private var refreshTask: Task<Void, Never>?
 
     public init(source: any EventSource) {
         self.source = source
@@ -40,7 +42,22 @@ public final class StatsStore {
 
     /// Reads the transcripts off the main thread. Passing `force` discards the remembered scan
     /// state, so an explicit refresh always reparses.
+    ///
+    /// Overlapping calls join the read already running rather than starting a second. SwiftUI fires
+    /// several refreshes while a window sets up, and without this each would read `lastScan` before
+    /// the first had written it — defeating change detection and reparsing the whole corpus N times.
     public func refresh(force: Bool = false) async {
+        if let running = refreshTask {
+            await running.value
+            if !force { return }
+        }
+        let task = Task { await self.performRefresh(force: force) }
+        refreshTask = task
+        await task.value
+        refreshTask = nil
+    }
+
+    private func performRefresh(force: Bool) async {
         if force { lastScan = nil }
         let previous = lastScan
         if case .idle = state { state = .loading }
@@ -59,7 +76,7 @@ public final class StatsStore {
             lastScan = scan.state
             lastError = nil
             state = .loaded(scan.result)
-            Log.store.debug("refresh: loaded \(scan.result.events.count, privacy: .public) events")
+            Log.store.debug("refresh: loaded \(scan.result.events.count) events")
 
         case .failure(let error):
             lastError = error
@@ -69,10 +86,11 @@ public final class StatsStore {
                 break
             }
             // A failed refresh must not erase numbers that were already read successfully.
-            let kept = { if case .loaded = state { return true } else { return false } }()
-            Log.store.error(
-                "refresh failed: \(error, privacy: .public)\(kept ? " (keeping earlier events)" : "")")
-            if kept { break }
+            if case .loaded = state {
+                Log.store.error("refresh failed: \(error, privacy: .public) (keeping earlier events)")
+                break
+            }
+            Log.store.error("refresh failed: \(error, privacy: .public)")
             state = .failed
         }
     }

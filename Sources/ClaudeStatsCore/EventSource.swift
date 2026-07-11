@@ -122,12 +122,11 @@ public struct FileEventSource: EventSource {
         }
         // .notice so it survives in `log show` after the fact; a scan is infrequent enough not to
         // flood the log.
+        // Integers are public in os_log by default; only the paths and duration need annotating.
         Log.scan.notice(
             """
-            scanned \(files.count, privacy: .public) files → \
-            \(events.count, privacy: .public) events, \
-            \(skippedLines, privacy: .public) skipped lines, \
-            \(unreadableFiles.count, privacy: .public) unreadable files, \
+            scanned \(files.count) files → \(events.count) events, \
+            \(skippedLines) skipped lines, \(unreadableFiles.count) unreadable files, \
             in \(clock.now - start, privacy: .public)
             """)
         for file in unreadableFiles {

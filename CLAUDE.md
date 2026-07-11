@@ -18,7 +18,7 @@ and renders token-usage statistics as a configurable dashboard. Spec and rationa
 ## Debugging (you have no window — read the log)
 
 The app logs through `os.Logger`, subsystem `com.oustrix.claudestats`, categories `scan`, `store`,
-`layout`, `render`. `scan` totals and all errors are `.notice`/`.error` (they persist, so `log show`
+`layout`. `scan` totals and all errors are `.notice`/`.error` (they persist, so `log show`
 finds them after the fact); frequent events like each refresh are `.debug` (live `log stream` only).
 
 `log` is a zsh builtin in this environment — call `/usr/bin/log`. Filter to the app's process, or the
