@@ -62,6 +62,7 @@
 - [x] 7.6 Implement block editing: an add-block menu over the catalog, per-block removal, reordering, and a parameter popover per block type that offers only the parameters that type uses. Every mutation persists the layout. Reordering is by buttons rather than drag — a drag inside a scrolling column of charts fights the scroll — which also means each persist follows a discrete action and needs no debounce.
 - [x] 7.7 Render a notice listing any blocks skipped from the layout file, distinguishing an unknown block type from unreadable parameters, and report a layout that could not be written.
 - [x] 7.8 Rename `Dimension` to `BreakdownDimension`. Foundation ships a unit-of-measurement type by that name, and the collision forced a qualification at every call site.
+- [x] 7.9 Add `os.Logger` diagnostics (subsystem `com.oustrix.claudestats`, categories scan/store/layout/render) plus a signposter, so an agent driving the app — which cannot see the window — can read what happened from `log show`/`log stream`. Scan totals and errors log at `.notice`/`.error` so they survive in `log show`; frequent refreshes at `.debug`. The scan is instrumented in `parse`, the point both the plain and change-detecting read paths share — an earlier version instrumented `loadEvents`, which the refresh path never calls, and the log stayed silent until a live run exposed it.
 
 ## 8. Packaging
 

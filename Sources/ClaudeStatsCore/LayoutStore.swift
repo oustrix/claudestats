@@ -26,17 +26,23 @@ public struct LayoutStore: Sendable {
         guard let data = try? Data(contentsOf: fileURL) else {
             // No file yet, or it cannot be read. Either way the user gets defaults; seed the file
             // so there is something to edit.
-            return Loaded(
-                layout: .default, skipped: [], wasReset: false, persistenceError: attemptSave(.default))
+            let error = attemptSave(.default)
+            Log.layout.notice(
+                "no readable layout at \(fileURL.path(), privacy: .public), wrote default\(error.map { ": save failed: \($0)" } ?? "")")
+            return Loaded(layout: .default, skipped: [], wasReset: false, persistenceError: error)
         }
 
         guard let decoded = try? Layout.decode(data) else {
             let preserveError = preserve(data)
             let saveError = attemptSave(.default)
+            Log.layout.error(
+                "layout at \(fileURL.path(), privacy: .public) was unreadable; reset to default")
             return Loaded(
                 layout: .default, skipped: [], wasReset: true,
                 persistenceError: preserveError ?? saveError)
         }
+        Log.layout.debug(
+            "loaded \(decoded.layout.blocks.count, privacy: .public) blocks, \(decoded.skipped.count, privacy: .public) skipped")
         return Loaded(
             layout: decoded.layout, skipped: decoded.skipped, wasReset: false, persistenceError: nil)
     }

@@ -88,6 +88,13 @@ public struct FileEventSource: EventSource {
     }
 
     private func parse(files: [URL]) -> ScanResult {
+        // Instrumented here, not in loadEvents: the refresh path runs through loadEventsIfChanged,
+        // which calls parse directly. This is the one point both paths share.
+        let interval = Log.signposter.beginInterval("scan")
+        defer { Log.signposter.endInterval("scan", interval) }
+        let clock = ContinuousClock()
+        let start = clock.now
+
         var events: [TranscriptEvent] = []
         var skippedLines = 0
         var unreadableFiles: [URL] = []
@@ -112,6 +119,19 @@ public struct FileEventSource: EventSource {
                 case .malformed: skippedLines += 1
                 }
             }
+        }
+        // .notice so it survives in `log show` after the fact; a scan is infrequent enough not to
+        // flood the log.
+        Log.scan.notice(
+            """
+            scanned \(files.count, privacy: .public) files → \
+            \(events.count, privacy: .public) events, \
+            \(skippedLines, privacy: .public) skipped lines, \
+            \(unreadableFiles.count, privacy: .public) unreadable files, \
+            in \(clock.now - start, privacy: .public)
+            """)
+        for file in unreadableFiles {
+            Log.scan.error("could not read \(file.path(), privacy: .public)")
         }
         return ScanResult(
             events: events, skippedLines: skippedLines, unreadableFiles: unreadableFiles)

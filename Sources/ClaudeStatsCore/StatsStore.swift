@@ -53,21 +53,26 @@ public final class StatsStore {
         switch outcome {
         case .success(nil):
             // Nothing changed. Whatever is on screen is still true.
-            break
+            Log.store.debug("refresh: nothing changed")
 
         case .success(.some(let scan)):
             lastScan = scan.state
             lastError = nil
             state = .loaded(scan.result)
+            Log.store.debug("refresh: loaded \(scan.result.events.count, privacy: .public) events")
 
         case .failure(let error):
             lastError = error
             if case EventSourceError.rootNotFound(let root) = error {
                 state = .noTranscripts(root)
+                Log.store.notice("refresh: no transcripts at \(root.path(), privacy: .public)")
                 break
             }
             // A failed refresh must not erase numbers that were already read successfully.
-            if case .loaded = state { break }
+            let kept = { if case .loaded = state { return true } else { return false } }()
+            Log.store.error(
+                "refresh failed: \(error, privacy: .public)\(kept ? " (keeping earlier events)" : "")")
+            if kept { break }
             state = .failed
         }
     }

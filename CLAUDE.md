@@ -15,6 +15,26 @@ and renders token-usage statistics as a configurable dashboard. Spec and rationa
   it is XML only Xcode edits; this project is maintained as text.
 - `make run` — launch the SwiftUI app.
 
+## Debugging (you have no window — read the log)
+
+The app logs through `os.Logger`, subsystem `com.oustrix.claudestats`, categories `scan`, `store`,
+`layout`, `render`. `scan` totals and all errors are `.notice`/`.error` (they persist, so `log show`
+finds them after the fact); frequent events like each refresh are `.debug` (live `log stream` only).
+
+`log` is a zsh builtin in this environment — call `/usr/bin/log`. Filter to the app's process, or the
+test suite's identical logging drowns it:
+
+```
+# After the fact, app only:
+/usr/bin/log show --predicate 'subsystem == "com.oustrix.claudestats" AND process == "ClaudeStats"' --last 5m
+# Live, everything including .debug:
+/usr/bin/log stream --predicate 'subsystem == "com.oustrix.claudestats"' --level debug
+```
+
+A signposter posts a `scan` interval to Instruments' Points of Interest for timeline profiling.
+Note: `swift test` logs through the same subsystem (its records show temp paths), so filter by
+process when reading a real run.
+
 ## Layout
 
 - `Sources/ClaudeStatsCore/` — library. Imports only `Foundation` (+ `Observation`). **Never** import
