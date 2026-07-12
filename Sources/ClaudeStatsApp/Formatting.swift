@@ -34,6 +34,7 @@ extension Bucket {
         switch self {
         case .day: "By day"
         case .hour: "By hour"
+        case .week: "By week"
         }
     }
 }
@@ -55,6 +56,7 @@ extension BlockType {
         case .timeSeries: "Chart over time"
         case .breakdown: "Breakdown"
         case .sessionList: "Sessions"
+        case .heatmap: "Heatmap"
         }
     }
 
@@ -64,6 +66,18 @@ extension BlockType {
         case .timeSeries: "chart.bar"
         case .breakdown: "list.bullet"
         case .sessionList: "clock"
+        case .heatmap: "square.grid.3x3"
+        }
+    }
+
+    /// A block that draws its own fixed window instead of honoring `timeframe` returns that window's
+    /// label here; a timeframe-driven block returns nil. One property drives both the card header and
+    /// whether the editor offers a Timeframe control, so "ignores timeframe" lives in a single place —
+    /// and the window length stays sourced from `Aggregation.heatmapWeeks`, never re-typed.
+    var fixedWindowLabel: String? {
+        switch self {
+        case .heatmap: "Last \(Aggregation.heatmapWeeks) weeks"
+        case .bigNumber, .timeSeries, .breakdown, .sessionList: nil
         }
     }
 }

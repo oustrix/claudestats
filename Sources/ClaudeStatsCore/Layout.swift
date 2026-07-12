@@ -7,6 +7,20 @@ public enum BlockType: String, Codable, CaseIterable, Sendable {
     case timeSeries
     case breakdown
     case sessionList
+    case heatmap
+}
+
+extension BlockType {
+    /// The buckets this type can actually draw, so the editor never offers an unusable granularity:
+    /// a `timeSeries` plots by `day`/`hour`, a `heatmap` grids by `day`/`week`. Types with no bucket
+    /// parameter offer none. `Aggregation.heatmap` coerces a stray `.hour` to `.day` to match.
+    public var supportedBuckets: [Bucket] {
+        switch self {
+        case .timeSeries: [.day, .hour]
+        case .heatmap: [.day, .week]
+        case .bigNumber, .breakdown, .sessionList: []
+        }
+    }
 }
 
 /// One block and its parameters, flat so that `layout.json` stays legible to a human editing it.

@@ -30,19 +30,22 @@ public enum Timeframe: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// The width of one point on a time series.
+/// The width of one point on a time series or one cell of a heatmap.
 public enum Bucket: String, Codable, CaseIterable, Sendable {
     case day
     case hour
+    case week
 
     var component: Calendar.Component {
         switch self {
         case .day: .day
         case .hour: .hour
+        case .week: .weekOfYear
         }
     }
 
-    /// The instant the bucket containing `date` begins, in the given calendar's timezone.
+    /// The instant the bucket containing `date` begins, in the given calendar's timezone. A week
+    /// begins on the calendar's configured `firstWeekday`.
     func start(of date: Date, in calendar: Calendar) -> Date {
         switch self {
         case .day:
@@ -50,6 +53,9 @@ public enum Bucket: String, Codable, CaseIterable, Sendable {
         case .hour:
             calendar.date(
                 from: calendar.dateComponents([.year, .month, .day, .hour], from: date)) ?? date
+        case .week:
+            calendar.dateInterval(of: .weekOfYear, for: date)?.start
+                ?? calendar.startOfDay(for: date)
         }
     }
 }

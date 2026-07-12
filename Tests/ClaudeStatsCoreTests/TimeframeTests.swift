@@ -145,3 +145,41 @@ private func event(at iso: String, input: Int = 1) -> TranscriptEvent {
 
     #expect(series.isEmpty)
 }
+
+// MARK: - Weekly bucketing
+
+/// UTC+3, weeks starting Monday, so a Wednesday message falls in the week beginning the prior Monday.
+private let mondayWeek: Calendar = {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 3 * 3600)!
+    calendar.firstWeekday = 2  // Monday
+    return calendar
+}()
+
+@Test func aMessageIsAttributedToItsLocalWeek() {
+    // 2026-07-08 is a Wednesday; with weeks starting Monday its week begins 2026-07-06.
+    let series = Aggregation.timeSeries(
+        .inputOutput, over: [event(at: "2026-07-08T12:00:00Z")], bucket: .week,
+        timeframe: .allTime, now: instant("2026-07-09T12:00:00Z"), calendar: mondayWeek)
+
+    #expect(series.count == 1)
+    let start = mondayWeek.dateComponents([.year, .month, .day], from: series[0].date)
+    #expect(start.year == 2026 && start.month == 7 && start.day == 6)
+}
+
+@Test func weeklyTotalsReconcileWithTheGrandTotal() {
+    let events = [
+        event(at: "2026-06-15T10:00:00Z", input: 5),  // Mon — week of 15 Jun
+        event(at: "2026-06-22T10:00:00Z", input: 7),  // Mon — week of 22 Jun
+        event(at: "2026-06-24T10:00:00Z", input: 11),  // Wed — same week as above
+    ]
+
+    let series = Aggregation.timeSeries(
+        .inputOutput, over: events, bucket: .week, timeframe: .allTime,
+        now: instant("2026-06-25T00:00:00Z"), calendar: mondayWeek)
+
+    #expect(series.map(\.value) == [5, 18])
+    #expect(
+        series.reduce(0) { $0 + $1.value }
+            == Aggregation.total(.inputOutput, over: events, timeframe: .allTime))
+}

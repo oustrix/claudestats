@@ -103,7 +103,9 @@ private struct BlockCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(block.title).font(.headline)
-                Text(block.timeframe.title).font(.caption).foregroundStyle(.secondary)
+                // A fixed-window block (the heatmap) labels its window; the rest label their timeframe.
+                Text(block.type.fixedWindowLabel ?? block.timeframe.title)
+                    .font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 controls
             }
@@ -124,6 +126,8 @@ private struct BlockCard: View {
             BreakdownBlockView(block: block, events: model.events, home: model.home)
         case .sessionList:
             SessionListBlockView(block: block, events: model.events, home: model.home)
+        case .heatmap:
+            HeatmapBlockView(block: block, events: model.events)
         }
     }
 

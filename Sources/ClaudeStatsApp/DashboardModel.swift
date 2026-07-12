@@ -102,6 +102,11 @@ extension BlockConfig {
                 dimension: defaultDimension, limit: defaultLimit(for: type))
         case .sessionList:
             BlockConfig(type: type, timeframe: .last7Days, limit: defaultLimit(for: type))
+        case .heatmap:
+            // Timeframe is required by the shape but ignored by the heatmap, which draws its own
+            // fixed window; the bucket (`day`/`week`) and metric are what it actually reads.
+            BlockConfig(
+                type: type, metric: defaultMetric, timeframe: .last30Days, bucket: defaultBucket)
         }
     }
 
@@ -111,6 +116,7 @@ extension BlockConfig {
         case .timeSeries: "\(metric?.title ?? "Tokens") over time"
         case .breakdown: "By \(dimension?.title.lowercased() ?? "dimension")"
         case .sessionList: "Sessions"
+        case .heatmap: "\(metric?.title ?? "Tokens") heatmap"
         }
     }
 }

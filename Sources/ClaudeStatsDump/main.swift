@@ -55,6 +55,21 @@ if let ratio = audit.ratio {
     print("\nnaive line-sum of input+output: \(audit.naiveLineSum.formatted())  (\(times)x the true total)")
 }
 
+// The heatmap draws a fixed 52-week window, so its total is the metric summed over just that span.
+// Day and week bucketing must agree with each other, and — when all activity is within the window —
+// with the all-time total above. This is the number `ccusage`/`jq` over the same range check against.
+heading("Heatmap window (last 52 weeks, input + output)")
+let byDay = Aggregation.heatmap(.inputOutput, over: events, bucket: .day, now: Date())
+let byWeek = Aggregation.heatmap(.inputOutput, over: events, bucket: .week, now: Date())
+let dayTotal = byDay.cells.reduce(0) { $0 + $1.value }
+let weekTotal = byWeek.cells.reduce(0) { $0 + $1.value }
+print("by day:   \(dayTotal.formatted())")
+print("by week:  \(weekTotal.formatted())  \(dayTotal == weekTotal ? "✓ agrees" : "✗ MISMATCH")")
+if let busiest = byDay.cells.max(by: { $0.value < $1.value }), busiest.value > 0 {
+    let day = busiest.date.formatted(.dateTime.year().month(.abbreviated).day())
+    print("busiest:  \(day) — \(busiest.value.formatted()) (level \(busiest.level))")
+}
+
 func printBreakdown(_ title: String, _ dimension: BreakdownDimension, metric: Metric) {
     heading(title)
     let rows = Aggregation.breakdown(

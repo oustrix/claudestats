@@ -20,13 +20,17 @@ struct BlockEditor: View {
                 .help(block.dimension == .tool ? "A tool breakdown counts invocations" : "")
             }
 
-            Picker("Timeframe", selection: $block.timeframe) {
-                ForEach(Timeframe.allCases, id: \.self) { Text($0.title).tag($0) }
+            // A fixed-window block draws its own span, so a timeframe would be a dead control.
+            if block.type.fixedWindowLabel == nil {
+                Picker("Timeframe", selection: $block.timeframe) {
+                    ForEach(Timeframe.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
             }
 
-            if block.type == .timeSeries {
+            // Each type offers only the buckets it can draw, never `Bucket.allCases` blindly.
+            if !block.type.supportedBuckets.isEmpty {
                 Picker("Bucket", selection: bucket) {
-                    ForEach(Bucket.allCases, id: \.self) { Text($0.title).tag($0) }
+                    ForEach(block.type.supportedBuckets, id: \.self) { Text($0.title).tag($0) }
                 }
             }
 
