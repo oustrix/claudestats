@@ -153,7 +153,7 @@ private struct RawLayout: Decodable {
             let type: String?
         }
 
-        init(from decoder: Decoder) throws {
+        init(from decoder: any Decoder) throws {
             if let block = try? BlockConfig(from: decoder) {
                 self = .block(block)
                 return

@@ -1,25 +1,38 @@
 // swift-tools-version: 6.0
 import PackageDescription
 
+// Swift 6.2 "approachable concurrency" upcoming features, applied to every target. These are
+// shipped, source-compatible-once-adopted changes that become default in a future language mode;
+// enabling them now surfaces real data-race and existential costs early rather than at the next
+// major-version jump.
+let swiftSettings: [SwiftSetting] = [
+    .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+    .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableUpcomingFeature("ExistentialAny"),
+]
+
 let package = Package(
     name: "ClaudeStats",
     platforms: [.macOS("26.0")],
     targets: [
-        .target(name: "ClaudeStatsCore"),
+        .target(name: "ClaudeStatsCore", swiftSettings: swiftSettings),
         .executableTarget(
             name: "ClaudeStatsApp",
-            dependencies: ["ClaudeStatsCore"]
+            dependencies: ["ClaudeStatsCore"],
+            swiftSettings: swiftSettings
         ),
         // A command-line view of the same aggregation the dashboard draws, so the app's numbers can
         // be cross-checked against an independent tool.
         .executableTarget(
             name: "ClaudeStatsDump",
-            dependencies: ["ClaudeStatsCore"]
+            dependencies: ["ClaudeStatsCore"],
+            swiftSettings: swiftSettings
         ),
         .testTarget(
             name: "ClaudeStatsCoreTests",
             dependencies: ["ClaudeStatsCore"],
-            resources: [.copy("Fixtures")]
+            resources: [.copy("Fixtures")],
+            swiftSettings: swiftSettings
         ),
     ]
 )

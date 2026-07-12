@@ -100,7 +100,7 @@ private struct RawMessage: Decodable {
         case id, model, content, usage, stop_reason
     }
 
-    init(from decoder: Decoder) throws {
+    init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(String.self, forKey: .id)
         model = try container.decodeIfPresent(String.self, forKey: .model)
