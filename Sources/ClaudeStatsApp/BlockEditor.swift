@@ -37,7 +37,7 @@ struct BlockEditor: View {
             }
 
             if block.type == .breakdown || block.type == .sessionList {
-                Stepper("Rows: \(block.limit ?? 8)", value: limit, in: 1...30)
+                Stepper("Rows: \(block.resolvedLimit)", value: limit, in: 1...30)
             }
         }
         .formStyle(.grouped)
@@ -47,15 +47,15 @@ struct BlockEditor: View {
 
     // Bindings that give a default to parameters stored as optional.
     private var metric: Binding<Metric> {
-        Binding(get: { block.metric ?? .inputOutput }, set: { block.metric = $0 })
+        Binding(get: { block.resolvedMetric }, set: { block.metric = $0 })
     }
     private var bucket: Binding<Bucket> {
-        Binding(get: { block.bucket ?? .day }, set: { block.bucket = $0 })
+        Binding(get: { block.resolvedBucket }, set: { block.bucket = $0 })
     }
     private var dimension: Binding<BreakdownDimension> {
-        Binding(get: { block.dimension ?? .model }, set: { block.dimension = $0 })
+        Binding(get: { block.resolvedDimension }, set: { block.dimension = $0 })
     }
     private var limit: Binding<Int> {
-        Binding(get: { block.limit ?? 8 }, set: { block.limit = $0 })
+        Binding(get: { block.resolvedLimit }, set: { block.limit = $0 })
     }
 }

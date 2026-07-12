@@ -12,8 +12,9 @@ struct SessionListBlockView: View {
     let home: String
 
     private var sessions: [Session] {
-        let kept = Aggregation.filter(events, timeframe: block.timeframe, now: .now)
-        return Array(Aggregation.sessions(from: kept, home: home).prefix(block.limit ?? 10))
+        Array(
+            Aggregation.sessions(from: events, home: home, timeframe: block.timeframe, now: .now)
+                .prefix(block.resolvedLimit))
     }
 
     var body: some View {

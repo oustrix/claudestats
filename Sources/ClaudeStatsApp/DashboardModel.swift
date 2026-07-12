@@ -39,14 +39,12 @@ final class DashboardModel {
         persistenceError = loaded.persistenceError.map { String(describing: $0) }
     }
 
-    /// The events of the most recent successful scan, or none.
-    var events: [TranscriptEvent] {
-        if case .loaded(let result) = stats.state { result.events } else { [] }
-    }
-
     var scan: ScanResult? {
         if case .loaded(let result) = stats.state { result } else { nil }
     }
+
+    /// The events of the most recent successful scan, or none.
+    var events: [TranscriptEvent] { scan?.events ?? [] }
 
     // MARK: - Layout editing
 
@@ -88,19 +86,22 @@ final class DashboardModel {
 }
 
 extension BlockConfig {
-    /// A newly added block starts with parameters that make sense for its type.
+    /// A newly added block starts with parameters that make sense for its type. Parameter defaults
+    /// come from `BlockConfig`'s shared set, so a fresh block and a hand-edited one that omits a
+    /// field resolve to the same values.
     static func newBlock(of type: BlockType) -> BlockConfig {
         switch type {
         case .bigNumber:
-            BlockConfig(type: .bigNumber, metric: .inputOutput, timeframe: .last7Days)
+            BlockConfig(type: type, metric: defaultMetric, timeframe: .last7Days)
         case .timeSeries:
-            BlockConfig(type: .timeSeries, metric: .inputOutput, timeframe: .last30Days, bucket: .day)
+            BlockConfig(
+                type: type, metric: defaultMetric, timeframe: .last30Days, bucket: defaultBucket)
         case .breakdown:
             BlockConfig(
-                type: .breakdown, metric: .inputOutput, timeframe: .last30Days, dimension: .model,
-                limit: 8)
+                type: type, metric: defaultMetric, timeframe: .last30Days,
+                dimension: defaultDimension, limit: defaultLimit(for: type))
         case .sessionList:
-            BlockConfig(type: .sessionList, timeframe: .last7Days, limit: 10)
+            BlockConfig(type: type, timeframe: .last7Days, limit: defaultLimit(for: type))
         }
     }
 

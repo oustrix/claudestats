@@ -86,12 +86,10 @@ public final class StatsStore {
                 break
             }
             // A failed refresh must not erase numbers that were already read successfully.
-            if case .loaded = state {
-                Log.store.error("refresh failed: \(error, privacy: .public) (keeping earlier events)")
-                break
-            }
-            Log.store.error("refresh failed: \(error, privacy: .public)")
-            state = .failed
+            let keepEarlier: Bool = switch state { case .loaded: true; default: false }
+            Log.store.error(
+                "refresh failed: \(error, privacy: .public)\(keepEarlier ? " (keeping earlier events)" : "", privacy: .public)")
+            if !keepEarlier { state = .failed }
         }
     }
 }

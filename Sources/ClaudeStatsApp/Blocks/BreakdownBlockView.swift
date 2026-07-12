@@ -13,10 +13,9 @@ struct BreakdownBlockView: View {
     let home: String
 
     private var rows: [BreakdownRow] {
-        let kept = Aggregation.filter(events, timeframe: block.timeframe, now: .now)
-        return Aggregation.breakdown(
-            block.dimension ?? .model, metric: block.metric ?? .inputOutput, over: kept,
-            limit: block.limit ?? 8, home: home)
+        Aggregation.breakdown(
+            block.resolvedDimension, metric: block.resolvedMetric, over: events,
+            limit: block.resolvedLimit, home: home, timeframe: block.timeframe, now: .now)
     }
 
     var body: some View {

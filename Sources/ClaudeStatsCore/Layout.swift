@@ -34,6 +34,24 @@ public struct BlockConfig: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+extension BlockConfig {
+    /// The value each optional parameter takes when the stored layout omits it. `newBlock(of:)`
+    /// seeds a fresh block with these same defaults, so a hand-edited block that drops a field
+    /// renders identically to a freshly added one — the single source both paths read from.
+    public static let defaultMetric: Metric = .inputOutput
+    public static let defaultBucket: Bucket = .day
+    public static let defaultDimension: BreakdownDimension = .model
+    public static func defaultLimit(for type: BlockType) -> Int { type == .sessionList ? 10 : 8 }
+
+    /// Parameters are optional so `layout.json` can omit the ones a type does not use, but a view
+    /// always needs a concrete value. These resolve an absent parameter to its default, so the
+    /// render path and the editor cannot disagree about what "unset" means.
+    public var resolvedMetric: Metric { metric ?? Self.defaultMetric }
+    public var resolvedBucket: Bucket { bucket ?? Self.defaultBucket }
+    public var resolvedDimension: BreakdownDimension { dimension ?? Self.defaultDimension }
+    public var resolvedLimit: Int { limit ?? Self.defaultLimit(for: type) }
+}
+
 /// A block the layout named but this build could not render. The two cases call for different
 /// answers from the user, so they are not flattened into one: an unknown type means the config was
 /// written by a newer build, while unreadable parameters mean a typo this build can point at.

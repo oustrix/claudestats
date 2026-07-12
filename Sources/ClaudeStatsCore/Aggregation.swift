@@ -25,8 +25,11 @@ public struct BreakdownRow: Equatable, Sendable {
 /// Pure functions from transcript events to the numbers a block draws. No UI, no I/O, no caching:
 /// at a few thousand events, recomputing is cheaper than remembering.
 ///
-/// Every entry point takes raw events and performs the message/block split itself. A caller never
-/// holds a `Message`, so it cannot apply a counting rule to the wrong collection.
+/// Every entry point takes raw events and both windows them by timeframe and performs the
+/// message/block split itself. A caller states the timeframe but never holds a `Message` or a
+/// pre-filtered array, so it cannot window against the wrong clock or apply a counting rule to the
+/// wrong collection. `now` is consulted only for a bounded timeframe, so an `.allTime` aggregation
+/// ignores it.
 public enum Aggregation {
     /// Timeframes are whole local calendar days, not rolling 24-hour windows: "the last 7 days"
     /// means today and the six days before it, whatever the hour.
@@ -41,18 +44,23 @@ public enum Aggregation {
         return items.filter { $0.timestamp >= start }
     }
 
-    public static func total(_ metric: Metric, over events: [TranscriptEvent]) -> Int {
-        Counting.messages(from: events).reduce(0) { $0 + value(of: metric, in: $1.usage) }
+    public static func total(
+        _ metric: Metric, over events: [TranscriptEvent],
+        timeframe: Timeframe, now: Date = .distantPast, calendar: Calendar = .current
+    ) -> Int {
+        sum(metric, over: filter(events, timeframe: timeframe, now: now, calendar: calendar))
     }
 
     /// One point per bucket across the whole span, including buckets with no activity — a gap must
     /// read as zero, not as two distant days drawn side by side.
     public static func timeSeries(
         _ metric: Metric, over events: [TranscriptEvent], bucket: Bucket,
-        now: Date, calendar: Calendar = .current
+        timeframe: Timeframe, now: Date = .distantPast, calendar: Calendar = .current
     ) -> [DataPoint] {
         var totals: [Date: Int] = [:]
-        for message in Counting.messages(from: events) {
+        for message in Counting.messages(
+            from: filter(events, timeframe: timeframe, now: now, calendar: calendar))
+        {
             let start = bucket.start(of: message.timestamp, in: calendar)
             totals[start, default: 0] += value(of: metric, in: message.usage)
         }
@@ -73,9 +81,14 @@ public enum Aggregation {
     /// Groups events into sessions, newest first. A session's project and start come from its
     /// earliest message, so a run that crosses midnight stays one session — while its tokens still
     /// land on the days they were actually spent.
-    public static func sessions(from events: [TranscriptEvent], home: String) -> [Session] {
+    public static func sessions(
+        from events: [TranscriptEvent], home: String,
+        timeframe: Timeframe, now: Date = .distantPast, calendar: Calendar = .current
+    ) -> [Session] {
         var accumulators: [String: SessionAccumulator] = [:]
-        for message in Counting.messages(from: events) {
+        for message in Counting.messages(
+            from: filter(events, timeframe: timeframe, now: now, calendar: calendar))
+        {
             accumulators[message.sessionID, default: SessionAccumulator()].add(message)
         }
         return accumulators
@@ -90,8 +103,9 @@ public enum Aggregation {
     /// tokens cannot be attributed to an individual tool call.
     public static func breakdown(
         _ dimension: BreakdownDimension, metric: Metric, over events: [TranscriptEvent], limit: Int,
-        home: String
+        home: String, timeframe: Timeframe, now: Date = .distantPast, calendar: Calendar = .current
     ) -> [BreakdownRow] {
+        let events = filter(events, timeframe: timeframe, now: now, calendar: calendar)
         let rows: [BreakdownRow]
         switch dimension {
         case .tool:
@@ -125,12 +139,18 @@ public enum Aggregation {
     public static func inflationAudit(over events: [TranscriptEvent]) -> (
         honest: Int, naiveLineSum: Int, ratio: Double?
     ) {
-        let honest = total(.inputOutput, over: events)
+        let honest = sum(.inputOutput, over: events)
         let naive = Counting.naiveLineSumOfInputAndOutput(events)
         return (honest, naive, honest > 0 ? Double(naive) / Double(honest) : nil)
     }
 
     // MARK: - Internals
+
+    /// Sums a token metric over already-windowed events. The public `total` filters first; the
+    /// all-corpus audit sums directly.
+    private static func sum(_ metric: Metric, over events: [TranscriptEvent]) -> Int {
+        Counting.messages(from: events).reduce(0) { $0 + value(of: metric, in: $1.usage) }
+    }
 
     private static func totals<Key: Hashable>(
         over events: [TranscriptEvent], metric: Metric, keyedBy key: KeyPath<Message, Key>

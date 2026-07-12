@@ -8,9 +8,7 @@ struct BigNumberBlockView: View {
     let events: [TranscriptEvent]
 
     private var value: Int {
-        let metric = block.metric ?? .inputOutput
-        let kept = Aggregation.filter(events, timeframe: block.timeframe, now: .now)
-        return Aggregation.total(metric, over: kept)
+        Aggregation.total(block.resolvedMetric, over: events, timeframe: block.timeframe, now: .now)
     }
 
     var body: some View {
@@ -22,7 +20,7 @@ struct BigNumberBlockView: View {
                 // The exact figure is one hover away; the headline stays readable.
                 .help(value.grouped)
 
-            Text((block.metric ?? .inputOutput).title)
+            Text(block.resolvedMetric.title)
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }

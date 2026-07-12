@@ -12,16 +12,16 @@ private let splitMessage = [
 ]
 
 @Test func inputOutputExcludesCacheCounters() {
-    #expect(Aggregation.total(.inputOutput, over: splitMessage) == 30)
+    #expect(Aggregation.total(.inputOutput, over: splitMessage, timeframe: .allTime) == 30)
 }
 
 @Test func cacheMetricsReportTheirOwnCounter() {
-    #expect(Aggregation.total(.cacheRead, over: splitMessage) == 4000)
-    #expect(Aggregation.total(.cacheCreation, over: splitMessage) == 300)
+    #expect(Aggregation.total(.cacheRead, over: splitMessage, timeframe: .allTime) == 4000)
+    #expect(Aggregation.total(.cacheCreation, over: splitMessage, timeframe: .allTime) == 300)
 }
 
 @Test func allTokensSumsEveryCounter() {
-    #expect(Aggregation.total(.allTokens, over: splitMessage) == 4330)
+    #expect(Aggregation.total(.allTokens, over: splitMessage, timeframe: .allTime) == 4330)
 }
 
 /// The requests metric counts responses, not the lines they were written across.
@@ -32,12 +32,12 @@ private let splitMessage = [
         makeEvent(messageID: "m", requestID: "r"),
     ]
 
-    #expect(Aggregation.total(.requests, over: threeLinesOneMessage) == 1)
+    #expect(Aggregation.total(.requests, over: threeLinesOneMessage, timeframe: .allTime) == 1)
 }
 
 @Test func totalsOverNoEventsAreZero() {
     for metric in Metric.allCases {
-        #expect(Aggregation.total(metric, over: []) == 0)
+        #expect(Aggregation.total(metric, over: [], timeframe: .allTime) == 0)
     }
 }
 
@@ -47,7 +47,7 @@ private let splitMessage = [
         makeEvent(messageID: "b", usage: TokenUsage(input: 10, output: 20, cacheCreation: 30, cacheRead: 40)),
     ]
 
-    #expect(Aggregation.total(.inputOutput, over: events) == 33)
-    #expect(Aggregation.total(.allTokens, over: events) == 110)
-    #expect(Aggregation.total(.requests, over: events) == 2)
+    #expect(Aggregation.total(.inputOutput, over: events, timeframe: .allTime) == 33)
+    #expect(Aggregation.total(.allTokens, over: events, timeframe: .allTime) == 110)
+    #expect(Aggregation.total(.requests, over: events, timeframe: .allTime) == 2)
 }

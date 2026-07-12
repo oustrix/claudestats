@@ -42,11 +42,11 @@ for file in result.unreadableFiles {
 }
 
 heading("Tokens (deduplicated per message)")
-print("requests:       \(Aggregation.total(.requests, over: events).formatted())")
-print("input + output: \(Aggregation.total(.inputOutput, over: events).formatted())")
-print("cache creation: \(Aggregation.total(.cacheCreation, over: events).formatted())")
-print("cache read:     \(Aggregation.total(.cacheRead, over: events).formatted())")
-print("all tokens:     \(Aggregation.total(.allTokens, over: events).formatted())")
+print("requests:       \(Aggregation.total(.requests, over: events, timeframe: .allTime).formatted())")
+print("input + output: \(Aggregation.total(.inputOutput, over: events, timeframe: .allTime).formatted())")
+print("cache creation: \(Aggregation.total(.cacheCreation, over: events, timeframe: .allTime).formatted())")
+print("cache read:     \(Aggregation.total(.cacheRead, over: events, timeframe: .allTime).formatted())")
+print("all tokens:     \(Aggregation.total(.allTokens, over: events, timeframe: .allTime).formatted())")
 
 // The number this whole project exists to get right: summing lines instead of messages.
 let audit = Aggregation.inflationAudit(over: events)
@@ -57,7 +57,8 @@ if let ratio = audit.ratio {
 
 func printBreakdown(_ title: String, _ dimension: BreakdownDimension, metric: Metric) {
     heading(title)
-    let rows = Aggregation.breakdown(dimension, metric: metric, over: events, limit: 15, home: home)
+    let rows = Aggregation.breakdown(
+        dimension, metric: metric, over: events, limit: 15, home: home, timeframe: .allTime)
     guard !rows.isEmpty else {
         print("(none)")
         return
@@ -75,7 +76,7 @@ printBreakdown("By project (input + output)", .project, metric: .inputOutput)
 printBreakdown("By tool (invocations)", .tool, metric: .requests)
 
 heading("Sessions")
-let sessions = Aggregation.sessions(from: events, home: home)
+let sessions = Aggregation.sessions(from: events, home: home, timeframe: .allTime)
 print("count: \(sessions.count)")
 if let newest = sessions.first {
     print("newest: \(newest.project.displayName) — \(newest.messageCount) messages")

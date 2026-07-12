@@ -15,15 +15,15 @@ struct TimeSeriesBlockView: View {
     let events: [TranscriptEvent]
 
     private var points: [DataPoint] {
-        let kept = Aggregation.filter(events, timeframe: block.timeframe, now: .now)
-        return Aggregation.timeSeries(
-            block.metric ?? .inputOutput, over: kept, bucket: block.bucket ?? .day, now: .now)
+        Aggregation.timeSeries(
+            block.resolvedMetric, over: events, bucket: block.resolvedBucket,
+            timeframe: block.timeframe, now: .now)
     }
 
     var body: some View {
         Chart(points, id: \.date) { point in
             BarMark(
-                x: .value("Date", point.date, unit: block.bucket == .hour ? .hour : .day),
+                x: .value("Date", point.date, unit: block.resolvedBucket == .hour ? .hour : .day),
                 y: .value("Tokens", point.value)
             )
             .cornerRadius(3)

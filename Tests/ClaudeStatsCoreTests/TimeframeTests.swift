@@ -62,7 +62,7 @@ private func event(at iso: String, input: Int = 1) -> TranscriptEvent {
 @Test func anEveningMessageIsAttributedToItsLocalDay() {
     let series = Aggregation.timeSeries(
         .inputOutput, over: [event(at: "2026-07-02T21:30:00Z")], bucket: .day,
-        now: instant("2026-07-03T12:00:00Z"), calendar: moscow)
+        timeframe: .allTime, now: instant("2026-07-03T12:00:00Z"), calendar: moscow)
 
     #expect(series.count == 1)
     #expect(moscow.dateComponents([.day], from: series[0].date).day == 3)
@@ -76,10 +76,12 @@ private func event(at iso: String, input: Int = 1) -> TranscriptEvent {
     ]
 
     let series = Aggregation.timeSeries(
-        .inputOutput, over: events, bucket: .day, now: instant("2026-07-03T00:00:00Z"),
-        calendar: moscow)
+        .inputOutput, over: events, bucket: .day, timeframe: .allTime,
+        now: instant("2026-07-03T00:00:00Z"), calendar: moscow)
 
-    #expect(series.reduce(0) { $0 + $1.value } == Aggregation.total(.inputOutput, over: events))
+    #expect(
+        series.reduce(0) { $0 + $1.value }
+            == Aggregation.total(.inputOutput, over: events, timeframe: .allTime))
 }
 
 /// A session spanning midnight contributes to both days, each message on its own day.
@@ -90,8 +92,8 @@ private func event(at iso: String, input: Int = 1) -> TranscriptEvent {
     ]
 
     let series = Aggregation.timeSeries(
-        .inputOutput, over: events, bucket: .day, now: instant("2026-07-03T12:00:00Z"),
-        calendar: moscow)
+        .inputOutput, over: events, bucket: .day, timeframe: .allTime,
+        now: instant("2026-07-03T12:00:00Z"), calendar: moscow)
 
     #expect(series.map(\.value) == [100, 30])
 }
@@ -105,8 +107,8 @@ private func event(at iso: String, input: Int = 1) -> TranscriptEvent {
     ]
 
     let series = Aggregation.timeSeries(
-        .inputOutput, over: events, bucket: .day, now: instant("2026-07-04T20:00:00Z"),
-        calendar: moscow)
+        .inputOutput, over: events, bucket: .day, timeframe: .allTime,
+        now: instant("2026-07-04T20:00:00Z"), calendar: moscow)
 
     #expect(series.map(\.value) == [5, 0, 0, 9])
 }
@@ -119,28 +121,27 @@ private func event(at iso: String, input: Int = 1) -> TranscriptEvent {
     ]
 
     let series = Aggregation.timeSeries(
-        .inputOutput, over: events, bucket: .hour, now: instant("2026-07-02T12:00:00Z"),
-        calendar: moscow)
+        .inputOutput, over: events, bucket: .hour, timeframe: .allTime,
+        now: instant("2026-07-02T12:00:00Z"), calendar: moscow)
 
     #expect(series.map(\.value) == [5, 0, 4])
 }
 
-/// A time series is built from events already narrowed to a timeframe by the caller.
-@Test func aTimeSeriesRespectsWhateverTheCallerFiltered() {
+/// The entry point windows its events by the timeframe it is given — the caller does not pre-filter.
+@Test func aTimeSeriesWindowsByItsTimeframe() {
     let now = instant("2026-07-10T12:00:00Z")
     let events = [event(at: "2020-01-01T00:00:00Z"), event(at: "2026-07-10T09:00:00Z")]
 
-    let kept = Aggregation.filter(events, timeframe: .last7Days, now: now, calendar: moscow)
     let series = Aggregation.timeSeries(
-        .inputOutput, over: kept, bucket: .day, now: now, calendar: moscow)
+        .inputOutput, over: events, bucket: .day, timeframe: .last7Days, now: now, calendar: moscow)
 
     #expect(series.count == 1)
 }
 
 @Test func aTimeSeriesOverNoEventsIsEmpty() {
     let series = Aggregation.timeSeries(
-        .inputOutput, over: [], bucket: .day, now: instant("2026-07-02T12:00:00Z"),
-        calendar: moscow)
+        .inputOutput, over: [], bucket: .day, timeframe: .allTime,
+        now: instant("2026-07-02T12:00:00Z"), calendar: moscow)
 
     #expect(series.isEmpty)
 }
