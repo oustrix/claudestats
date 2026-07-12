@@ -3,7 +3,9 @@ APP := ClaudeStats.app
 BUNDLE_ID := com.oustrix.claudestats
 MIN_MACOS := 26.0
 
-.PHONY: build test run dump app clean
+APPS_DIR ?= /Applications
+
+.PHONY: build test run dump app install clean
 
 build:
 	swift build -c $(CONFIG)
@@ -42,6 +44,13 @@ app: build
 	  '</dict></plist>' \
 	  > $(APP)/Contents/Info.plist
 	@echo "built: $(APP)"
+
+# Builds the bundle from the current state and drops it into the Applications folder,
+# replacing any previous copy. Override the destination with: make install APPS_DIR=~/Applications
+install: app
+	rm -rf "$(APPS_DIR)/$(APP)"
+	cp -R $(APP) "$(APPS_DIR)/$(APP)"
+	@echo "installed: $(APPS_DIR)/$(APP)"
 
 clean:
 	rm -rf .build $(APP)
