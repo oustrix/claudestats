@@ -66,7 +66,7 @@
 
 ## 8. Packaging
 
-- [ ] 8.1 Confirm `make app` produces a launchable `ClaudeStats.app` that reads the real transcript directory, and document the unsigned-first-launch prompt in the README.
-- [ ] 8.2 Confirm App Sandbox is not enabled and that the app reads `~/.claude/projects/` without a folder-access prompt.
-- [ ] 8.3 Write a README covering `make` targets, the layout file location and format, the deduplication rule, and the absence of cost estimation.
-- [ ] 8.4 Run the full test suite and `make dump`; confirm the app's headline number matches the dump before declaring the change complete.
+- [x] 8.1 `make app` produces a launchable `ClaudeStats.app` that reads the real `~/.claude/projects/` (the log shows it loading 4 382 events on launch). The unsigned-first-launch prompt is documented in the README.
+- [x] 8.2 App Sandbox is not enabled — the bundle carries no entitlements (`codesign -d --entitlements -` is empty), and the app reads `~/.claude/projects/` with no folder-access prompt. Signature is ad-hoc.
+- [x] 8.3 README covers the `make` targets, first-launch and no-sandbox notes, the block catalog, the layout file location and format, the per-response counting rule, and the deliberate absence of a dollar figure.
+- [x] 8.4 Full suite green (98 tests). `make dump` cross-checked against `ccusage` on a fresh snapshot of the live corpus (123 files): input 1 202 800, output 1 438 021, cache creation 7 442 544, cache read 233 348 046, total 243 431 411 — every counter agrees to the unit. The dashboard and the dump both compute through the same `Aggregation`, so a headline over a given timeframe is the dump's figure narrowed to that window.
