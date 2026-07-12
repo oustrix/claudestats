@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch cancels the in-flight run instead of queueing behind it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    # macos-26 carries the macOS 26 SDK and Xcode 26 the package's deployment target needs.
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      # `make build` compiles every target, including the SwiftUI App and Dump CLI that
+      # `swift test` never touches; `make test` then runs the Core suite.
+      - run: make build
+      - run: make test
