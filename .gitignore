@@ -8,3 +8,6 @@
 ClaudeStats.app/
 
 .DS_Store
+
+# JetBrains IDE settings
+.idea/
