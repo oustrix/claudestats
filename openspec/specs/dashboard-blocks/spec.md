@@ -1,7 +1,8 @@
 # dashboard-blocks Specification
 
 ## Purpose
-TBD - created by archiving change add-usage-dashboard. Update Purpose after archive.
+The dashboard the app presents: an ordered list of blocks drawn from a closed catalog (`bigNumber`, `timeSeries`, `breakdown`, `sessionList`, `heatmap`), each a pure view over the loaded events and its own parameters. This capability governs what block types exist and what they render, how the user adds, removes, reorders and configures them, how the layout is persisted and versioned so a hand-edited or newer-build file is tolerated rather than fatal, and how scan quality and refreshes are surfaced. The catalog is closed on purpose: an open one drifts into a query builder, and a bad query builder is worse than a good dashboard.
+
 ## Requirements
 ### Requirement: Closed block catalog
 The system SHALL render the dashboard as an ordered list of blocks, each of exactly one type from a closed catalog: `bigNumber` (metric, timeframe), `timeSeries` (metric, timeframe, bucket), `breakdown` (dimension, metric, timeframe, limit), `sessionList` (timeframe, limit) and `heatmap` (metric, bucket). The system SHALL NOT offer a free-form query language or arbitrary metric-dimension composition beyond this catalog.

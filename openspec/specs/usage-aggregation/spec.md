@@ -1,7 +1,8 @@
 # usage-aggregation Specification
 
 ## Purpose
-TBD - created by archiving change add-usage-dashboard. Update Purpose after archive.
+The pure functions from transcript events to the numbers a dashboard block draws — no UI, no I/O, dedup performed internally so a caller cannot apply the wrong counting rule. This capability defines the token and request metrics (always over deduplicated messages), daily and weekly bucketing in the local timezone, session and project identity, breakdowns by model/project/tool, timeframe filtering, and the fixed-window calendar heatmap with quantile intensity levels. Every aggregate reconciles to its grand total and is reachable from a command-line dump for cross-checking against independent tools.
+
 ## Requirements
 ### Requirement: Usage metrics
 The system SHALL expose four token metrics — `inputOutput` (input plus output), `cacheRead`, `cacheCreation` and `allTokens` (the sum of all four counters) — and one count metric, `requests` (the number of deduplicated messages). Every metric SHALL be computed from deduplicated messages.
