@@ -81,25 +81,28 @@ public struct DashboardView: View {
                     grid
                 }
             }
-            .padding(20)
-            // Measure the content width so each block can be sized span/12 of it, without a
-            // GeometryReader in the layout tree (which has no intrinsic height and would collapse
-            // the scroll content).
+            // Fill the scroll view's width even when the grid content is narrower and no notice
+            // banner is present — otherwise the column sizes to its content and every block hugs
+            // the left edge. Measured here, *inside* the padding, so the reported width is already
+            // the content width each block is sized against — no padding to subtract back off.
+            .frame(maxWidth: .infinity)
             .background(
                 GeometryReader { proxy in
                     Color.clear.preference(key: GridWidthKey.self, value: proxy.size.width)
                 }
             )
+            .padding(20)
             .onPreferenceChange(GridWidthKey.self) { gridWidth = $0 }
         }
         .scrollContentBackground(.hidden)
     }
 
     /// The blocks packed onto the twelve-column grid: one `HStack` per packed row, each block sized
-    /// `span`/12 of the measured width.
+    /// `span`/12 of the measured width. A zero width (the first layout pass, before measurement)
+    /// yields zero-width blocks that `columnWidth` clamps for; the next pass sizes them for real.
     private var grid: some View {
         let spacing: CGFloat = 16
-        let width = gridWidth > 0 ? gridWidth - 40 : 0  // less the VStack's 20pt horizontal padding
+        let width = gridWidth
         let rows = packRows(spans: model.blocks.map(\.span))
         return VStack(spacing: spacing) {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
