@@ -17,6 +17,10 @@ public struct ScanResult: Equatable, Sendable {
         self.skippedLines = skippedLines
         self.unreadableFiles = unreadableFiles
     }
+
+    /// Whether this scan failed to read part of its input — a skipped line or an unreadable file.
+    /// The signal the UI surfaces so a lossy scan never passes for a complete one.
+    public var lostData: Bool { skippedLines > 0 || !unreadableFiles.isEmpty }
 }
 
 public enum EventSourceError: Error, Equatable {
