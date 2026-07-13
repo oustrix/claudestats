@@ -15,6 +15,16 @@ struct NoTranscriptsView: View {
     }
 }
 
+/// A loaded scan with nothing to draw: the layout has no blocks. A named type, like its siblings
+/// here, so it reads as one of the dashboard's states rather than an inline conditional.
+struct EmptyDashboardView: View {
+    var body: some View {
+        ContentUnavailableView(
+            "An empty dashboard", systemImage: "square.dashed",
+            description: Text("Add a block from the toolbar."))
+    }
+}
+
 struct LoadFailedView: View {
     let error: String
     let retry: () -> Void

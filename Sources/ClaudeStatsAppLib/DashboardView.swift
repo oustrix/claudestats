@@ -1,15 +1,26 @@
 import ClaudeStatsCore
 import SwiftUI
 
-struct DashboardView: View {
-    @State private var model = DashboardModel()
+public struct DashboardView: View {
+    @State private var model: DashboardModel
     @State private var editing: BlockConfig?
+
+    /// The executable constructs this with no argument. Tests reach the same view with a seeded model
+    /// through the internal initializer, so the empty/failure state screens can be asserted without a
+    /// live filesystem.
+    public init() {
+        self.init(model: DashboardModel())
+    }
+
+    init(model: DashboardModel) {
+        _model = State(initialValue: model)
+    }
 
     /// The refresh cadence lives here rather than in the store: a policy you can see is a policy
     /// you can change, and a store with a timer inside cannot be tested without waiting for it.
     private let refreshInterval = Duration.seconds(30)
 
-    var body: some View {
+    public var body: some View {
         content
             .toolbar { toolbar }
             .task {
@@ -49,10 +60,7 @@ struct DashboardView: View {
                     persistenceError: model.persistenceError, dismiss: model.dismissNotices)
 
                 if model.blocks.isEmpty {
-                    ContentUnavailableView(
-                        "An empty dashboard", systemImage: "square.dashed",
-                        description: Text("Add a block from the toolbar."))
-                        .padding(.top, 60)
+                    EmptyDashboardView().padding(.top, 60)
                 }
 
                 ForEach(model.blocks) { block in

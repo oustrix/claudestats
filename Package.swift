@@ -16,9 +16,16 @@ let package = Package(
     platforms: [.macOS("26.0")],
     targets: [
         .target(name: "ClaudeStatsCore", swiftSettings: swiftSettings),
+        // Everything the app is made of except the @main entry point. A library so a test target can
+        // import it — an executable target cannot be cleanly @testable-imported.
+        .target(
+            name: "ClaudeStatsAppLib",
+            dependencies: ["ClaudeStatsCore"],
+            swiftSettings: swiftSettings
+        ),
         .executableTarget(
             name: "ClaudeStatsApp",
-            dependencies: ["ClaudeStatsCore"],
+            dependencies: ["ClaudeStatsAppLib"],
             swiftSettings: swiftSettings
         ),
         // A command-line view of the same aggregation the dashboard draws, so the app's numbers can
