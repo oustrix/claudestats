@@ -4,6 +4,13 @@ import SwiftUI
 public struct DashboardView: View {
     @State private var model: DashboardModel
     @State private var editing: BlockConfig?
+    /// The width available to the block grid, measured from the content and fed back so each block
+    /// can be sized `span`/12 of it.
+    @State private var gridWidth: CGFloat = 0
+
+    /// The active theme. A single fixed default in phase 1; phase 2's settings window will drive
+    /// `Theme.default` (or inject a different value here) from a stored preference.
+    private let theme = Theme.default
 
     /// The executable constructs this with no argument. Tests reach the same view with a seeded model
     /// through the internal initializer, so the empty/failure state screens can be asserted without a
@@ -22,7 +29,16 @@ public struct DashboardView: View {
 
     public var body: some View {
         content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(theme.back)
+            .environment(\.theme, theme)
+            // Both palettes are dark and the app paints its own surfaces, so pin the scheme to dark:
+            // native chrome (progress spinners, content-unavailable views, popovers) then renders
+            // legibly on the theme even when the system is set to light. Traffic lights stay native.
+            .preferredColorScheme(.dark)
             .toolbar { toolbar }
+            .toolbarBackground(theme.tb, for: .windowToolbar)
+            .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
             .task {
                 await model.stats.refresh()
                 while !Task.isCancelled {
@@ -54,20 +70,48 @@ public struct DashboardView: View {
 
     private var dashboard: some View {
         ScrollView {
-            LazyVStack(spacing: 16) {
+            VStack(spacing: 16) {
                 LayoutNotices(
                     skipped: model.skipped, wasReset: model.wasReset,
                     persistenceError: model.persistenceError, dismiss: model.dismissNotices)
 
                 if model.blocks.isEmpty {
                     EmptyDashboardView().padding(.top, 60)
-                }
-
-                ForEach(model.blocks) { block in
-                    BlockCard(block: block, model: model, editing: $editing)
+                } else {
+                    grid
                 }
             }
             .padding(20)
+            // Measure the content width so each block can be sized span/12 of it, without a
+            // GeometryReader in the layout tree (which has no intrinsic height and would collapse
+            // the scroll content).
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(key: GridWidthKey.self, value: proxy.size.width)
+                }
+            )
+            .onPreferenceChange(GridWidthKey.self) { gridWidth = $0 }
+        }
+        .scrollContentBackground(.hidden)
+    }
+
+    /// The blocks packed onto the twelve-column grid: one `HStack` per packed row, each block sized
+    /// `span`/12 of the measured width.
+    private var grid: some View {
+        let spacing: CGFloat = 16
+        let width = gridWidth > 0 ? gridWidth - 40 : 0  // less the VStack's 20pt horizontal padding
+        let rows = packRows(spans: model.blocks.map(\.span))
+        return VStack(spacing: spacing) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(alignment: .top, spacing: spacing) {
+                    ForEach(row, id: \.self) { index in
+                        let block = model.blocks[index]
+                        BlockCard(block: block, model: model, editing: $editing)
+                            .frame(width: columnWidth(total: width, spacing: spacing, span: block.span))
+                    }
+                    Spacer(minLength: 0)  // left-align a partial row rather than stretching it
+                }
+            }
         }
     }
 
@@ -106,21 +150,24 @@ private struct BlockCard: View {
     let block: BlockConfig
     let model: DashboardModel
     @Binding var editing: BlockConfig?
+    @Environment(\.theme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(block.title).font(.headline)
+                Text(block.title).font(.headline).foregroundStyle(theme.txt)
                 // A fixed-window block (the heatmap) labels its window; the rest label their timeframe.
                 Text(block.type.fixedWindowLabel ?? block.timeframe.title)
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(theme.mut)
                 Spacer()
                 controls
             }
             body(for: block)
         }
         .padding(16)
-        .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 10))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(theme.card, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(theme.cardB, lineWidth: 1))
     }
 
     @ViewBuilder
@@ -176,6 +223,12 @@ private struct BlockCard: View {
         }
         .buttonStyle(.borderless)
         .labelStyle(.iconOnly)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(theme.mut)
     }
+}
+
+/// The measured width of the block grid, published up so each block can be sized from it.
+private struct GridWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }

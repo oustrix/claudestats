@@ -10,6 +10,7 @@ struct SessionListBlockView: View {
     let block: BlockConfig
     let events: [TranscriptEvent]
     let home: String
+    @Environment(\.theme) private var theme
 
     private var sessions: [Session] {
         Array(
@@ -21,7 +22,7 @@ struct SessionListBlockView: View {
         let sessions = sessions
 
         if sessions.isEmpty {
-            Text("No sessions in this timeframe").font(.callout).foregroundStyle(.secondary)
+            Text("No sessions in this timeframe").font(.callout).foregroundStyle(theme.sub)
         } else {
             VStack(spacing: 8) {
                 ForEach(sessions) { session in
@@ -29,23 +30,25 @@ struct SessionListBlockView: View {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(session.project.displayName)
                                 .lineLimit(1)
+                                .foregroundStyle(theme.txt)
                                 .help(session.project.abbreviatedPath)
                             Text(session.start, format: .dateTime.month().day().hour().minute())
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(theme.mut)
                         }
                         Spacer(minLength: 8)
 
                         Text(session.end.timeIntervalSince(session.start).durationLabel)
                             .font(.callout)
                             .monospacedDigit()
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(theme.sub)
                             .help("Span from first to last response, breaks included")
                             .frame(width: 60, alignment: .trailing)
 
                         Text((session.usage.input + session.usage.output).compact)
                             .font(.callout)
                             .monospacedDigit()
+                            .foregroundStyle(theme.txt)
                             .help("\(session.messageCount) responses")
                             .frame(width: 60, alignment: .trailing)
                     }

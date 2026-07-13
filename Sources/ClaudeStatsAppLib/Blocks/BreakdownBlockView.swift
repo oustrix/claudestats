@@ -11,6 +11,7 @@ struct BreakdownBlockView: View {
     let block: BlockConfig
     let events: [TranscriptEvent]
     let home: String
+    @Environment(\.theme) private var theme
 
     private var rows: [BreakdownRow] {
         Aggregation.breakdown(
@@ -23,7 +24,7 @@ struct BreakdownBlockView: View {
         let largest = rows.first?.value ?? 0
 
         if rows.isEmpty {
-            Text("Nothing in this timeframe").font(.callout).foregroundStyle(.secondary)
+            Text("Nothing in this timeframe").font(.callout).foregroundStyle(theme.sub)
         } else {
             VStack(spacing: 6) {
                 ForEach(rows, id: \.label) { row in
@@ -31,23 +32,27 @@ struct BreakdownBlockView: View {
                         Text(row.label)
                             .lineLimit(1)
                             .truncationMode(.middle)
+                            .foregroundStyle(theme.txt)
                             .help(row.detail ?? row.label)
                             .frame(width: 150, alignment: .leading)
 
                         GeometryReader { geometry in
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(.tint)
-                                .frame(
-                                    width: largest > 0
-                                        ? max(2, geometry.size.width * CGFloat(row.value) / CGFloat(largest))
-                                        : 0)
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 3).fill(theme.track)
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(theme.accent)
+                                    .frame(
+                                        width: largest > 0
+                                            ? max(2, geometry.size.width * CGFloat(row.value) / CGFloat(largest))
+                                            : 0)
+                            }
                         }
                         .frame(height: 14)
 
                         Text(row.value.compact)
                             .font(.callout)
                             .monospacedDigit()
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(theme.sub)
                             .help(row.value.grouped)
                             .frame(width: 60, alignment: .trailing)
                     }

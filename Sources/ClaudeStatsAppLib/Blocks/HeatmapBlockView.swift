@@ -116,16 +116,12 @@ private struct BubbleSizeKey: PreferenceKey {
 
 // MARK: - Cell colour
 
-/// The fill for a level, as `AnyShapeStyle` so every branch has one type. `.tint` follows the app's
-/// accent; `.quaternary` marks an empty cell as clearly unlit.
-private func fill(forLevel level: Int) -> AnyShapeStyle {
-    switch level {
-    case 1: AnyShapeStyle(.tint.opacity(0.25))
-    case 2: AnyShapeStyle(.tint.opacity(0.5))
-    case 3: AnyShapeStyle(.tint.opacity(0.75))
-    case 4: AnyShapeStyle(.tint)
-    default: AnyShapeStyle(.quaternary)
-    }
+/// The fill for an intensity level, straight off the theme's heat ramp: index 0 is an empty cell,
+/// 1…4 the lit bands. A level past the ramp is clamped to its darkest/brightest end rather than
+/// crashing on a bad index.
+private func heatColor(_ level: Int, heat: [Color]) -> Color {
+    guard !heat.isEmpty else { return .clear }
+    return heat[min(max(level, 0), heat.count - 1)]
 }
 
 private let cellSize: CGFloat = 11
@@ -137,10 +133,11 @@ private struct HeatmapSquare: View {
     let cell: HeatmapCell
     let size: CGFloat
     @Binding var hovered: HeatmapCell?
+    @Environment(\.theme) private var theme
 
     var body: some View {
         RoundedRectangle(cornerRadius: 2)
-            .fill(fill(forLevel: cell.level))
+            .fill(heatColor(cell.level, heat: theme.heat))
             .frame(width: size, height: size)
             .onHover { inside in
                 if inside {
@@ -258,18 +255,19 @@ private struct WeekHeatmapGrid: View {
 /// cut points: with few distinct values the scale uses fewer levels, and so does its legend.
 private struct HeatmapLegend: View {
     let thresholds: [Int]
+    @Environment(\.theme) private var theme
 
     private var bands: Int { max(1, thresholds.count + 1) }
 
     var body: some View {
         HStack(spacing: cellGap) {
-            Text("Less").font(.caption2).foregroundStyle(.secondary)
+            Text("Less").font(.caption2).foregroundStyle(theme.mut)
             ForEach(1...bands, id: \.self) { level in
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(fill(forLevel: level))
+                    .fill(heatColor(level, heat: theme.heat))
                     .frame(width: cellSize, height: cellSize)
             }
-            Text("More").font(.caption2).foregroundStyle(.secondary)
+            Text("More").font(.caption2).foregroundStyle(theme.mut)
         }
     }
 }
