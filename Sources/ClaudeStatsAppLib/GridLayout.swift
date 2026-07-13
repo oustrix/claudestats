@@ -46,3 +46,63 @@ func columnWidth(total: CGFloat, spacing: CGFloat, span: Int) -> CGFloat {
     let unit = (total - spacing * CGFloat(gridColumns - 1)) / CGFloat(gridColumns)
     return max(0, unit * CGFloat(span) + spacing * CGFloat(span - 1))
 }
+
+/// Each block's span, attached to its view so the `GridFlowLayout` can read it back. Defaults to a
+/// full row, matching `BlockConfig`'s decode default.
+private struct SpanLayoutKey: LayoutValueKey {
+    static let defaultValue = BlockConfig.fullSpan
+}
+
+extension View {
+    /// Tags a block with the number of grid columns it should occupy.
+    func gridSpan(_ span: Int) -> some View { layoutValue(key: SpanLayoutKey.self, value: span) }
+}
+
+/// Lays blocks out on the twelve-column grid: greedy row packing by span, each block sized to its
+/// columns, rows stacked top to bottom. A real `Layout` rather than a measured-width feedback loop —
+/// it reads the container width straight off the layout proposal, so there is no one-frame lag and no
+/// zero-width first pass, and it reports a true intrinsic height so it composes inside a `ScrollView`.
+/// The packing and column arithmetic are the same pure `packRows`/`columnWidth` the unit tests pin.
+struct GridFlowLayout: SwiftUI.Layout {
+    var spacing: CGFloat = 16
+
+    private func spans(_ subviews: LayoutSubviews) -> [Int] {
+        subviews.map { clampSpan($0[SpanLayoutKey.self]) }
+    }
+
+    /// The height of one packed row: the tallest of its blocks, each measured at the width its span
+    /// earns on a grid `width` points wide.
+    private func rowHeight(_ row: [Int], subviews: LayoutSubviews, width: CGFloat) -> CGFloat {
+        row.map { index in
+            let w = columnWidth(total: width, spacing: spacing, span: subviews[index][SpanLayoutKey.self])
+            return subviews[index].sizeThatFits(.init(width: w, height: nil)).height
+        }.max() ?? 0
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: LayoutSubviews, cache: inout Void) -> CGSize {
+        let width = proposal.replacingUnspecifiedDimensions().width
+        let rows = packRows(spans: spans(subviews))
+        let heights = rows.map { rowHeight($0, subviews: subviews, width: width) }
+        let total = heights.reduce(0, +) + spacing * CGFloat(max(rows.count - 1, 0))
+        return CGSize(width: width, height: total)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect, proposal: ProposedViewSize, subviews: LayoutSubviews, cache: inout Void
+    ) {
+        let rows = packRows(spans: spans(subviews))
+        var y = bounds.minY
+        for row in rows {
+            let height = rowHeight(row, subviews: subviews, width: bounds.width)
+            var x = bounds.minX
+            for index in row {
+                let w = columnWidth(total: bounds.width, spacing: spacing, span: subviews[index][SpanLayoutKey.self])
+                subviews[index].place(
+                    at: CGPoint(x: x, y: y), anchor: .topLeading,
+                    proposal: .init(width: w, height: height))
+                x += w + spacing
+            }
+            y += height + spacing
+        }
+    }
+}

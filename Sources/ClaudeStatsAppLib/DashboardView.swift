@@ -4,9 +4,6 @@ import SwiftUI
 public struct DashboardView: View {
     @State private var model: DashboardModel
     @State private var editing: BlockConfig?
-    /// The width available to the block grid, measured from the content and fed back so each block
-    /// can be sized `span`/12 of it.
-    @State private var gridWidth: CGFloat = 0
 
     /// The active theme. A single fixed default in phase 1; phase 2's settings window will drive
     /// `Theme.default` (or inject a different value here) from a stored preference.
@@ -81,39 +78,20 @@ public struct DashboardView: View {
                     grid
                 }
             }
-            // Fill the scroll view's width even when the grid content is narrower and no notice
-            // banner is present — otherwise the column sizes to its content and every block hugs
-            // the left edge. Measured here, *inside* the padding, so the reported width is already
-            // the content width each block is sized against — no padding to subtract back off.
-            .frame(maxWidth: .infinity)
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(key: GridWidthKey.self, value: proxy.size.width)
-                }
-            )
             .padding(20)
-            .onPreferenceChange(GridWidthKey.self) { gridWidth = $0 }
+            .frame(maxWidth: .infinity)
         }
         .scrollContentBackground(.hidden)
     }
 
-    /// The blocks packed onto the twelve-column grid: one `HStack` per packed row, each block sized
-    /// `span`/12 of the measured width. A zero width (the first layout pass, before measurement)
-    /// yields zero-width blocks that `columnWidth` clamps for; the next pass sizes them for real.
+    /// The blocks packed onto the twelve-column grid. `GridFlowLayout` reads each block's span, sizes
+    /// it to its columns, and stacks the packed rows — taking the width straight from its layout
+    /// proposal, so there is no width measurement to plumb back in.
     private var grid: some View {
-        let spacing: CGFloat = 16
-        let width = gridWidth
-        let rows = packRows(spans: model.blocks.map(\.span))
-        return VStack(spacing: spacing) {
-            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                HStack(alignment: .top, spacing: spacing) {
-                    ForEach(row, id: \.self) { index in
-                        let block = model.blocks[index]
-                        BlockCard(block: block, model: model, editing: $editing)
-                            .frame(width: columnWidth(total: width, spacing: spacing, span: block.span))
-                    }
-                    Spacer(minLength: 0)  // left-align a partial row rather than stretching it
-                }
+        GridFlowLayout(spacing: 16) {
+            ForEach(model.blocks) { block in
+                BlockCard(block: block, model: model, editing: $editing)
+                    .gridSpan(block.span)
             }
         }
     }
@@ -228,10 +206,4 @@ private struct BlockCard: View {
         .labelStyle(.iconOnly)
         .foregroundStyle(theme.mut)
     }
-}
-
-/// The measured width of the block grid, published up so each block can be sized from it.
-private struct GridWidthKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
