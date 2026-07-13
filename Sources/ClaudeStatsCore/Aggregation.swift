@@ -51,6 +51,11 @@ public struct BreakdownRow: Equatable, Sendable {
 public enum Aggregation {
     /// Timeframes are whole local calendar days, not rolling 24-hour windows: "the last 7 days"
     /// means today and the six days before it, whatever the hour.
+    ///
+    /// Load-bearing: the window is bounded only from below (`timestamp >= start`), never from above —
+    /// `now` is assumed to be the present. The app's period-over-period delta relies on this to
+    /// isolate a preceding window by subtraction; adding an upper bound would break that caller (see
+    /// `periodDelta`).
     public static func filter<T: Timestamped>(
         _ items: [T], timeframe: Timeframe, now: Date, calendar: Calendar = .current
     ) -> [T] {

@@ -9,6 +9,11 @@ import SwiftUI
 /// Xcode's binary editor), the mockup needs a dozen roles rather than one accent, and a fixed-dark
 /// palette must not flip with the system setting. Being a plain value also makes it trivial to test
 /// and to swap.
+///
+/// The full mockup palette is defined here even though phase 1 does not draw every role yet: `win`,
+/// `bord`, `faint`, `onAccent` and `overlay` are staged for later phases (settings chrome, accent
+/// buttons, and the modal scrim breakdowns will open into) and kept so the palette stays a complete,
+/// hand-tuned pair rather than something reassembled from a mockup a phase at a time.
 struct Theme: Equatable, Sendable {
     /// The app/window backdrop behind the cards.
     let back: Color

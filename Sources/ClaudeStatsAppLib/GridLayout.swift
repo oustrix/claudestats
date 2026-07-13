@@ -1,8 +1,10 @@
 import ClaudeStatsCore
 import SwiftUI
 
-/// The maximum width of a row: the dashboard is a twelve-column grid.
-let gridColumns = 12
+/// The number of columns the dashboard grid spans. The same "full width" fact `BlockConfig.fullSpan`
+/// encodes for the migration default, sourced once so the layout math and the decode default cannot
+/// drift apart.
+let gridColumns = BlockConfig.fullSpan
 
 /// Coerces a raw span into 1…`gridColumns`. A hand-edited `layout.json` can hold a nonsense span; a
 /// block should still draw, so an out-of-range value is clamped rather than crashing the layout.
@@ -14,15 +16,15 @@ func clampSpan(_ span: Int) -> Int { min(max(span, 1), gridColumns) }
 /// preserved: the layout never reorders blocks to pack a gap, because the user's order is the point.
 ///
 /// A pure function of the spans alone, so the packing is testable without a view. Spans are clamped
-/// to 1…12 first, so a block never demands more than a full row.
-func packRows(spans: [Int], columns: Int = gridColumns) -> [[Int]] {
+/// to 1…12 first (the shared `clampSpan`), so a block never demands more than a full row.
+func packRows(spans: [Int]) -> [[Int]] {
     var rows: [[Int]] = []
     var current: [Int] = []
     var used = 0
 
     for (index, rawSpan) in spans.enumerated() {
-        let span = min(max(rawSpan, 1), columns)
-        if !current.isEmpty && used + span > columns {
+        let span = clampSpan(rawSpan)
+        if !current.isEmpty && used + span > gridColumns {
             rows.append(current)
             current = []
             used = 0
