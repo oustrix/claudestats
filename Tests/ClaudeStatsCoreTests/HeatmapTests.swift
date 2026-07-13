@@ -23,11 +23,13 @@ private let now = instant("2026-07-08T12:00:00Z")
 
 // MARK: - Window shape
 
+/// 51 full week-columns plus the current week truncated at today. `now` is a Wednesday, the third
+/// day of a Monday-based week, so the last column holds three cells rather than seven.
 @Test func dayModeIsSevenRowsAcrossFiftyTwoWeeks() {
     let heatmap = Aggregation.heatmap(
         .inputOutput, over: [], bucket: .day, now: now, calendar: mondayWeek)
 
-    #expect(heatmap.cells.count == 52 * 7)
+    #expect(heatmap.cells.count == (Aggregation.heatmapWeeks - 1) * 7 + 3)
     #expect(heatmap.bucket == .day)
 }
 
@@ -59,6 +61,17 @@ private let now = instant("2026-07-08T12:00:00Z")
     #expect(byHour.cells.count == byDay.cells.count)
 }
 
+/// The current week is drawn only through today; days still to come are not rendered as empty
+/// cells. `now` is a Wednesday, so the last cell is that Wednesday, not the following Sunday.
+@Test func futureDaysInTheCurrentWeekAreNotDrawn() {
+    let heatmap = Aggregation.heatmap(
+        .inputOutput, over: [], bucket: .day, now: now, calendar: mondayWeek)
+
+    let today = mondayWeek.startOfDay(for: now)
+    #expect(heatmap.cells.allSatisfy { $0.date <= today })
+    #expect(heatmap.cells.last?.date == today)
+}
+
 // MARK: - Density and reconciliation
 
 @Test func emptyDaysAreZeroValuedLevelZeroCells() {
@@ -66,8 +79,8 @@ private let now = instant("2026-07-08T12:00:00Z")
         .inputOutput, over: [event(at: "2026-07-07T10:00:00Z", input: 5)],
         bucket: .day, now: now, calendar: mondayWeek)
 
-    // Every day is present, and only the one active day is non-zero.
-    #expect(heatmap.cells.count == 52 * 7)
+    // Every day through today is present, and only the one active day is non-zero.
+    #expect(heatmap.cells.count == (Aggregation.heatmapWeeks - 1) * 7 + 3)
     #expect(heatmap.cells.filter { $0.value == 0 }.allSatisfy { $0.level == 0 })
     #expect(heatmap.cells.filter { $0.value > 0 }.count == 1)
 }

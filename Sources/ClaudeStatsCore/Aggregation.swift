@@ -118,11 +118,9 @@ public enum Aggregation {
         }
         let totals = bucketTotals(windowed, metric: metric, bucket: bucket, calendar: calendar)
 
-        // The last cell is the bucket ending the window; `denseDates` is inclusive of it.
-        guard let lastCell = calendar.date(byAdding: bucket.component, value: -1, to: windowEnd)
-        else {
-            return Heatmap(cells: [], bucket: bucket, thresholds: [])
-        }
+        // The last cell is the bucket containing `now`: the current week is drawn only through
+        // today, not filled forward with empty cells for days still to come.
+        let lastCell = bucket.start(of: now, in: calendar)
         let dates = denseDates(from: windowStart, through: lastCell, bucket: bucket, calendar: calendar)
         let values = dates.map { totals[$0] ?? 0 }
 
