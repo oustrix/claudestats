@@ -101,15 +101,65 @@ private func json(_ text: String) -> Data { Data(text.utf8) }
     #expect(text.contains("\"type\" : \"bigNumber\""))
 }
 
+// MARK: - Span decoding and round-tripping
+
+/// A layout written before spans existed had one full-width block per row. Decoding it must keep
+/// that: a missing `span` means span 12, not a re-flowed dashboard.
+@Test func aBlockWithoutASpanDecodesToFullWidth() throws {
+    let data = json(
+        """
+        {"version": 1, "blocks": [
+          {"id": "3F2504E0-4F89-11D3-9A0C-0305E82C3301", "type": "bigNumber",
+           "metric": "inputOutput", "timeframe": "allTime"}
+        ]}
+        """)
+
+    let decoded = try Layout.decode(data)
+
+    #expect(decoded.skipped.isEmpty)
+    #expect(decoded.layout.blocks[0].span == 12)
+}
+
+/// A new layout carries explicit spans, and they survive an encode/decode round trip.
+@Test func explicitSpansRoundTrip() throws {
+    let layout = Layout(blocks: [
+        BlockConfig(type: .bigNumber, metric: .inputOutput, timeframe: .last7Days, span: 4),
+        BlockConfig(type: .timeSeries, metric: .inputOutput, timeframe: .last30Days, bucket: .day, span: 12),
+    ])
+
+    let decoded = try Layout.decode(Layout.encode(layout)).layout
+
+    #expect(decoded.blocks.map(\.span) == [4, 12])
+    #expect(decoded == layout)
+}
+
 // MARK: - Default layout
 
-/// The default dashboard showcases every block type a new user should meet first. The `heatmap` is
-/// deliberately not among them: it is addable from the toolbar, not seeded, so the default stays
-/// the compact starter set it was designed as.
-@Test func theDefaultLayoutCoversEveryBlockTypeExceptHeatmap() {
-    let types = Set(Layout.default.blocks.map(\.type))
+/// The default dashboard is the mockup arrangement: three KPI cards, a wide time series, three
+/// breakdowns, a heatmap and a session list — with the spans that pack them into the grid.
+@Test func theDefaultLayoutMatchesTheMockupArrangement() {
+    let blocks = Layout.default.blocks
 
-    #expect(types == Set(BlockType.allCases).subtracting([.heatmap]))
+    #expect(blocks.map(\.type) == [
+        .bigNumber, .bigNumber, .bigNumber, .timeSeries, .breakdown, .breakdown, .breakdown,
+        .heatmap, .sessionList,
+    ])
+    #expect(blocks.map(\.span) == [4, 4, 4, 12, 4, 4, 4, 12, 12])
+}
+
+/// The three KPI cards headline input+output, requests and cache reads — the mockup's top row.
+@Test func theDefaultKPICardsAreInputOutputRequestsAndCacheRead() {
+    let kpis = Layout.default.blocks.prefix(3)
+
+    #expect(kpis.map(\.type) == [.bigNumber, .bigNumber, .bigNumber])
+    #expect(kpis.map(\.metric) == [.inputOutput, .requests, .cacheRead])
+}
+
+/// The three breakdowns rank model, project and tool — the mockup's middle row.
+@Test func theDefaultBreakdownsAreModelProjectAndTool() {
+    let breakdowns = Layout.default.blocks.filter { $0.type == .breakdown }
+
+    #expect(breakdowns.map(\.dimension) == [.model, .project, .tool])
 }
 
 /// Cache reads are over 90% of all tokens, so the headline number must be the work, not the cache.

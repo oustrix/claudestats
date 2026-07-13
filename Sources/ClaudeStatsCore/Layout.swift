@@ -33,10 +33,15 @@ public struct BlockConfig: Codable, Equatable, Identifiable, Sendable {
     public var bucket: Bucket?
     public var dimension: BreakdownDimension?
     public var limit: Int?
+    /// How many of the dashboard's twelve columns this block occupies, 1…12. A block written before
+    /// spans existed had a row to itself, so a decode that finds no span reads it as `fullSpan` (12),
+    /// preserving the one-block-per-row layout it was authored under.
+    public var span: Int
 
     public init(
         id: UUID = UUID(), type: BlockType, metric: Metric? = nil, timeframe: Timeframe,
-        bucket: Bucket? = nil, dimension: BreakdownDimension? = nil, limit: Int? = nil
+        bucket: Bucket? = nil, dimension: BreakdownDimension? = nil, limit: Int? = nil,
+        span: Int = BlockConfig.fullSpan
     ) {
         self.id = id
         self.type = type
@@ -45,6 +50,25 @@ public struct BlockConfig: Codable, Equatable, Identifiable, Sendable {
         self.bucket = bucket
         self.dimension = dimension
         self.limit = limit
+        self.span = span
+    }
+
+    /// The full width of the twelve-column grid. Also the migration default: a spanless block fills
+    /// its row, as every block did before spans were a concept.
+    public static let fullSpan = 12
+
+    /// A missing `span` is not an error but a pre-spans layout: it decodes to `fullSpan`. Every other
+    /// field keeps its synthesized behaviour, so a legible hand-edited file still round-trips.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        type = try container.decode(BlockType.self, forKey: .type)
+        metric = try container.decodeIfPresent(Metric.self, forKey: .metric)
+        timeframe = try container.decode(Timeframe.self, forKey: .timeframe)
+        bucket = try container.decodeIfPresent(Bucket.self, forKey: .bucket)
+        dimension = try container.decodeIfPresent(BreakdownDimension.self, forKey: .dimension)
+        limit = try container.decodeIfPresent(Int.self, forKey: .limit)
+        span = try container.decodeIfPresent(Int.self, forKey: .span) ?? BlockConfig.fullSpan
     }
 }
 
@@ -88,20 +112,29 @@ public struct Layout: Equatable, Sendable {
 
     public static let currentVersion = 1
 
-    /// What a new user sees. The headline is `inputOutput`, not `allTokens`: cache reads are over
-    /// 90% of every token, so a headline of "all tokens" would be a headline about the cache.
+    /// What a new user sees: the mockup arrangement on the twelve-column grid. A top row of three
+    /// KPI cards (span 4 each), a full-width time series, a row of three breakdowns (span 4 each),
+    /// then a full-width heatmap and session list. The headline metric is `inputOutput`, not
+    /// `allTokens`: cache reads are over 90% of every token, so a headline of "all tokens" would be
+    /// a headline about the cache.
     public static let `default` = Layout(blocks: [
-        BlockConfig(type: .bigNumber, metric: .inputOutput, timeframe: .last7Days),
-        BlockConfig(type: .timeSeries, metric: .inputOutput, timeframe: .last30Days, bucket: .day),
+        BlockConfig(type: .bigNumber, metric: .inputOutput, timeframe: .last7Days, span: 4),
+        BlockConfig(type: .bigNumber, metric: .requests, timeframe: .last7Days, span: 4),
+        BlockConfig(type: .bigNumber, metric: .cacheRead, timeframe: .last7Days, span: 4),
+        BlockConfig(
+            type: .timeSeries, metric: .inputOutput, timeframe: .last30Days, bucket: .day, span: 12),
         BlockConfig(
             type: .breakdown, metric: .inputOutput, timeframe: .last30Days, dimension: .model,
-            limit: 8),
+            limit: 8, span: 4),
         BlockConfig(
             type: .breakdown, metric: .inputOutput, timeframe: .last30Days, dimension: .project,
-            limit: 8),
+            limit: 8, span: 4),
         BlockConfig(
-            type: .breakdown, metric: .requests, timeframe: .last30Days, dimension: .tool, limit: 10),
-        BlockConfig(type: .sessionList, timeframe: .last7Days, limit: 10),
+            type: .breakdown, metric: .requests, timeframe: .last30Days, dimension: .tool, limit: 10,
+            span: 4),
+        BlockConfig(
+            type: .heatmap, metric: .inputOutput, timeframe: .last30Days, bucket: .day, span: 12),
+        BlockConfig(type: .sessionList, timeframe: .last7Days, limit: 10, span: 12),
     ])
 
     /// What a decode produced, and what it had to leave behind.
