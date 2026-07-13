@@ -40,31 +40,31 @@ struct LoadFailedView: View {
     }
 }
 
-/// What the most recent scan managed to read, and what it did not. Shown always, not only on
-/// failure: a count the user cannot audit is a count they have to take on faith.
+/// What the most recent scan failed to read. Shown only when a scan lost data: the raw line count
+/// is a debug figure (`Log.scan` notice, `make dump`), but skipped lines and unreadable files each
+/// drop a response the dashboard should never silently omit.
 struct ScanSummary: View {
     let scan: ScanResult
 
     var body: some View {
-        HStack(spacing: 6) {
-            Text("\(scan.events.count.grouped) lines")
-
-            if scan.skippedLines > 0 {
-                Text("· \(scan.skippedLines) skipped")
-                    .foregroundStyle(.orange)
-                    .help("Lines that did not parse. Each one loses a single response.")
+        if scan.lostData {
+            HStack(spacing: 6) {
+                if scan.skippedLines > 0 {
+                    Text("\(scan.skippedLines) skipped")
+                        .foregroundStyle(.orange)
+                        .help("Lines that did not parse. Each one loses a single response.")
+                }
+                if !scan.unreadableFiles.isEmpty {
+                    Text("\(scan.unreadableFiles.count) unreadable")
+                        .foregroundStyle(.red)
+                        .help(
+                            "Files that could not be opened. Every response they held is missing:\n"
+                                + scan.unreadableFiles.map(\.path).joined(separator: "\n"))
+                }
             }
-            if !scan.unreadableFiles.isEmpty {
-                Text("· \(scan.unreadableFiles.count) unreadable")
-                    .foregroundStyle(.red)
-                    .help(
-                        "Files that could not be opened. Every response they held is missing:\n"
-                            + scan.unreadableFiles.map(\.path).joined(separator: "\n"))
-            }
+            .font(.callout)
+            .monospacedDigit()
         }
-        .font(.callout)
-        .foregroundStyle(.secondary)
-        .monospacedDigit()
     }
 }
 
