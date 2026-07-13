@@ -79,6 +79,9 @@ public struct DashboardView: View {
                 }
             }
             .padding(20)
+            // The grid fills the width on its own (its Layout claims the proposed width); this frame
+            // is for the *other* branches — the empty-state and the notices banner are narrow and
+            // would otherwise hug the left edge of the scroll content.
             .frame(maxWidth: .infinity)
         }
         .scrollContentBackground(.hidden)
@@ -88,7 +91,7 @@ public struct DashboardView: View {
     /// it to its columns, and stacks the packed rows — taking the width straight from its layout
     /// proposal, so there is no width measurement to plumb back in.
     private var grid: some View {
-        GridFlowLayout(spacing: 16) {
+        GridFlowLayout {
             ForEach(model.blocks) { block in
                 BlockCard(block: block, model: model, editing: $editing)
                     .gridSpan(block.span)

@@ -66,23 +66,28 @@ extension View {
 struct GridFlowLayout: SwiftUI.Layout {
     var spacing: CGFloat = 16
 
-    private func spans(_ subviews: LayoutSubviews) -> [Int] {
+    /// Every block's clamped span, read once so packing and sizing provably use the same value —
+    /// the `packRows` and `columnWidth` clamps then only reaffirm an already-clamped input.
+    private func clampedSpans(_ subviews: LayoutSubviews) -> [Int] {
         subviews.map { clampSpan($0[SpanLayoutKey.self]) }
     }
 
     /// The height of one packed row: the tallest of its blocks, each measured at the width its span
     /// earns on a grid `width` points wide.
-    private func rowHeight(_ row: [Int], subviews: LayoutSubviews, width: CGFloat) -> CGFloat {
+    private func rowHeight(
+        _ row: [Int], subviews: LayoutSubviews, spans: [Int], width: CGFloat
+    ) -> CGFloat {
         row.map { index in
-            let w = columnWidth(total: width, spacing: spacing, span: subviews[index][SpanLayoutKey.self])
+            let w = columnWidth(total: width, spacing: spacing, span: spans[index])
             return subviews[index].sizeThatFits(.init(width: w, height: nil)).height
         }.max() ?? 0
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: LayoutSubviews, cache: inout Void) -> CGSize {
         let width = proposal.replacingUnspecifiedDimensions().width
-        let rows = packRows(spans: spans(subviews))
-        let heights = rows.map { rowHeight($0, subviews: subviews, width: width) }
+        let spans = clampedSpans(subviews)
+        let rows = packRows(spans: spans)
+        let heights = rows.map { rowHeight($0, subviews: subviews, spans: spans, width: width) }
         let total = heights.reduce(0, +) + spacing * CGFloat(max(rows.count - 1, 0))
         return CGSize(width: width, height: total)
     }
@@ -90,13 +95,14 @@ struct GridFlowLayout: SwiftUI.Layout {
     func placeSubviews(
         in bounds: CGRect, proposal: ProposedViewSize, subviews: LayoutSubviews, cache: inout Void
     ) {
-        let rows = packRows(spans: spans(subviews))
+        let spans = clampedSpans(subviews)
+        let rows = packRows(spans: spans)
         var y = bounds.minY
         for row in rows {
-            let height = rowHeight(row, subviews: subviews, width: bounds.width)
+            let height = rowHeight(row, subviews: subviews, spans: spans, width: bounds.width)
             var x = bounds.minX
             for index in row {
-                let w = columnWidth(total: bounds.width, spacing: spacing, span: subviews[index][SpanLayoutKey.self])
+                let w = columnWidth(total: bounds.width, spacing: spacing, span: spans[index])
                 subviews[index].place(
                     at: CGPoint(x: x, y: y), anchor: .topLeading,
                     proposal: .init(width: w, height: height))
