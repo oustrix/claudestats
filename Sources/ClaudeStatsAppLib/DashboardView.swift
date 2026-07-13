@@ -5,6 +5,10 @@ public struct DashboardView: View {
     @State private var model: DashboardModel
     @State private var editing: BlockConfig?
 
+    /// The active theme. A single fixed default in phase 1; phase 2's settings window will drive
+    /// `Theme.default` (or inject a different value here) from a stored preference.
+    private let theme = Theme.default
+
     /// The executable constructs this with no argument. Tests reach the same view with a seeded model
     /// through the internal initializer, so the empty/failure state screens can be asserted without a
     /// live filesystem.
@@ -22,7 +26,16 @@ public struct DashboardView: View {
 
     public var body: some View {
         content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(theme.back)
+            .environment(\.theme, theme)
+            // Both palettes are dark and the app paints its own surfaces, so pin the scheme to dark:
+            // native chrome (progress spinners, content-unavailable views, popovers) then renders
+            // legibly on the theme even when the system is set to light. Traffic lights stay native.
+            .preferredColorScheme(.dark)
             .toolbar { toolbar }
+            .toolbarBackground(theme.tb, for: .windowToolbar)
+            .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
             .task {
                 await model.stats.refresh()
                 while !Task.isCancelled {
@@ -54,20 +67,35 @@ public struct DashboardView: View {
 
     private var dashboard: some View {
         ScrollView {
-            LazyVStack(spacing: 16) {
+            VStack(spacing: 16) {
                 LayoutNotices(
                     skipped: model.skipped, wasReset: model.wasReset,
                     persistenceError: model.persistenceError, dismiss: model.dismissNotices)
 
                 if model.blocks.isEmpty {
                     EmptyDashboardView().padding(.top, 60)
-                }
-
-                ForEach(model.blocks) { block in
-                    BlockCard(block: block, model: model, editing: $editing)
+                } else {
+                    grid
                 }
             }
             .padding(20)
+            // The grid fills the width on its own (its Layout claims the proposed width); this frame
+            // is for the *other* branches — the empty-state and the notices banner are narrow and
+            // would otherwise hug the left edge of the scroll content.
+            .frame(maxWidth: .infinity)
+        }
+        .scrollContentBackground(.hidden)
+    }
+
+    /// The blocks packed onto the twelve-column grid. `GridFlowLayout` reads each block's span, sizes
+    /// it to its columns, and stacks the packed rows — taking the width straight from its layout
+    /// proposal, so there is no width measurement to plumb back in.
+    private var grid: some View {
+        GridFlowLayout {
+            ForEach(model.blocks) { block in
+                BlockCard(block: block, model: model, editing: $editing)
+                    .gridSpan(block.span)
+            }
         }
     }
 
@@ -106,21 +134,24 @@ private struct BlockCard: View {
     let block: BlockConfig
     let model: DashboardModel
     @Binding var editing: BlockConfig?
+    @Environment(\.theme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(block.title).font(.headline)
+                Text(block.title).font(.headline).foregroundStyle(theme.txt)
                 // A fixed-window block (the heatmap) labels its window; the rest label their timeframe.
                 Text(block.type.fixedWindowLabel ?? block.timeframe.title)
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(theme.mut)
                 Spacer()
                 controls
             }
             body(for: block)
         }
         .padding(16)
-        .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 10))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(theme.card, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(theme.cardB, lineWidth: 1))
     }
 
     @ViewBuilder
@@ -176,6 +207,6 @@ private struct BlockCard: View {
         }
         .buttonStyle(.borderless)
         .labelStyle(.iconOnly)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(theme.mut)
     }
 }

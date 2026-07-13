@@ -13,6 +13,7 @@ import SwiftUI
 struct TimeSeriesBlockView: View {
     let block: BlockConfig
     let events: [TranscriptEvent]
+    @Environment(\.theme) private var theme
 
     private var points: [DataPoint] {
         Aggregation.timeSeries(
@@ -27,18 +28,28 @@ struct TimeSeriesBlockView: View {
                 y: .value("Tokens", point.value)
             )
             .cornerRadius(3)
-            .foregroundStyle(.tint)
+            .foregroundStyle(theme.bar)
         }
         .chartYAxis {
             AxisMarks { value in
-                AxisGridLine().foregroundStyle(.quaternary)
+                AxisGridLine().foregroundStyle(theme.grid)
                 AxisValueLabel {
-                    if let tokens = value.as(Int.self) { Text(tokens.compact) }
+                    if let tokens = value.as(Int.self) {
+                        Text(tokens.compact).foregroundStyle(theme.mut)
+                    }
                 }
             }
         }
-        .chartXAxis { AxisMarks(preset: .aligned) }
+        .chartXAxis {
+            AxisMarks(preset: .aligned) {
+                AxisGridLine().foregroundStyle(theme.grid)
+                AxisTick().foregroundStyle(theme.grid)
+                AxisValueLabel().foregroundStyle(theme.mut)
+            }
+        }
         .frame(height: 180)
-        .drawingGroup()
+        // Note: `.drawingGroup()` was dropped here. Its offscreen buffer does not reliably inherit
+        // the app's forced-dark colour scheme, which risks light-mode axis labels on the dark card.
+        // The chart is small enough to redraw as vectors; the human verifies the render visually.
     }
 }

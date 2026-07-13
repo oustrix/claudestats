@@ -74,6 +74,7 @@ struct LayoutNotices: View {
     let wasReset: Bool
     let persistenceError: String?
     let dismiss: () -> Void
+    @Environment(\.theme) private var theme
 
     var body: some View {
         if !skipped.isEmpty || wasReset || persistenceError != nil {
@@ -102,12 +103,15 @@ struct LayoutNotices: View {
                 }
             }
             .font(.callout)
+            .foregroundStyle(theme.txt)
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 8))
+            .background(theme.pill, in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(theme.cardB, lineWidth: 1))
             .overlay(alignment: .topTrailing) {
                 Button(action: dismiss) { Image(systemName: "xmark") }
                     .buttonStyle(.plain)
+                    .foregroundStyle(theme.mut)
                     .padding(6)
             }
         }

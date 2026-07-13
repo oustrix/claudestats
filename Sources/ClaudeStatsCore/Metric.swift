@@ -21,7 +21,9 @@ public enum Timeframe: String, Codable, CaseIterable, Sendable {
     case allTime
 
     /// The number of local days the window spans, today included. `nil` means no lower bound.
-    var days: Int? {
+    /// Public so a caller can compose the immediately preceding equal-length window — shift `now`
+    /// back by this many days and run the same aggregation — without a new counting rule.
+    public var days: Int? {
         switch self {
         case .last7Days: 7
         case .last30Days: 30
