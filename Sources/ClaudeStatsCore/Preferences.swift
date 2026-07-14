@@ -51,6 +51,12 @@ public struct Preferences: Codable, Equatable, Sendable {
         transcriptRoot.map { URL(filePath: $0) } ?? FileEventSource.defaultRoot
     }
 
+    /// "Empty means no override" is the one rule for a transcripts path — applied on decode and on a
+    /// settings change alike, so a blank selection and a blank file resolve identically.
+    public static func normalizedRoot(_ path: String?) -> String? {
+        (path?.isEmpty ?? true) ? nil : path
+    }
+
     private enum CodingKeys: String, CodingKey {
         case theme, refreshInterval, transcriptRoot
     }
@@ -63,16 +69,14 @@ public struct Preferences: Codable, Equatable, Sendable {
         theme = rawTheme.flatMap(ThemeChoice.init(rawValue:)) ?? .slate
         let rawInterval = try container.decodeIfPresent(Int.self, forKey: .refreshInterval)
         refreshInterval = rawInterval.flatMap(RefreshInterval.init(rawValue:)) ?? .thirty
-        let rawRoot = try container.decodeIfPresent(String.self, forKey: .transcriptRoot)
-        transcriptRoot = (rawRoot?.isEmpty ?? true) ? nil : rawRoot
+        transcriptRoot = Preferences.normalizedRoot(
+            try container.decodeIfPresent(String.self, forKey: .transcriptRoot))
     }
 
-    public func encode(to encoder: any Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(theme.rawValue, forKey: .theme)
-        try container.encode(refreshInterval.rawValue, forKey: .refreshInterval)
-        try container.encodeIfPresent(transcriptRoot, forKey: .transcriptRoot)
-    }
+    // `encode(to:)` is the compiler-synthesized one: a custom `init(from:)` and `CodingKeys` do not
+    // suppress it, and the synthesized encoder already writes each enum as its raw value and omits an
+    // absent optional — exactly the on-disk shape decode expects. Only the static `encode(_:)` below
+    // is custom, for the pretty-printing.
 
     public static func decode(_ data: Data) throws -> Preferences {
         try JSONDecoder().decode(Preferences.self, from: data)
@@ -103,13 +107,13 @@ public struct PreferencesStore: Sendable {
     public func load() -> Preferences {
         guard let data = try? Data(contentsOf: fileURL) else {
             try? save(.default)
-            Log.layout.notice(
+            Log.settings.notice(
                 "no readable settings at \(fileURL.path(), privacy: .public), wrote default")
             return .default
         }
         guard let decoded = try? Preferences.decode(data) else {
             try? save(.default)
-            Log.layout.error(
+            Log.settings.error(
                 "settings at \(fileURL.path(), privacy: .public) were unreadable; reset to default")
             return .default
         }
@@ -124,8 +128,6 @@ public struct PreferencesStore: Sendable {
 
     /// `~/Library/Application Support/ClaudeStats/settings.json`, beside `layout.json`.
     public static var defaultURL: URL {
-        URL.applicationSupportDirectory
-            .appending(path: "ClaudeStats")
-            .appending(path: "settings.json")
+        URL.claudeStatsSupportDirectory.appending(path: "settings.json")
     }
 }

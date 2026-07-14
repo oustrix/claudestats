@@ -23,7 +23,8 @@ public struct DashboardView: View {
     }
 
     public var body: some View {
-        content
+        let theme = self.theme
+        return content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(theme.back)
             .environment(\.theme, theme)

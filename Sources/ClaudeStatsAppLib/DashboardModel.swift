@@ -135,8 +135,7 @@ final class DashboardModel {
     /// Points the store at a new transcripts root (or back to the default when `path` is nil), then
     /// rebuilds and re-scans: a new root is a new corpus. An empty string means no override.
     func setTranscriptRoot(_ path: String?) {
-        let normalized = (path?.isEmpty ?? true) ? nil : path
-        preferences.transcriptRoot = normalized
+        preferences.transcriptRoot = Preferences.normalizedRoot(path)
         persistPreferences()
         stats = makeStore(preferences.resolvedTranscriptRoot)
         Task { await stats.refresh() }
@@ -149,7 +148,7 @@ final class DashboardModel {
         do {
             try preferencesStore.save(preferences)
         } catch {
-            Log.store.error("could not save settings: \(error, privacy: .public)")
+            Log.settings.error("could not save settings: \(error, privacy: .public)")
         }
     }
 }
