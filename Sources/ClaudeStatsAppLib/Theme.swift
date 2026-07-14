@@ -1,3 +1,4 @@
+import ClaudeStatsCore
 import SwiftUI
 
 /// The dashboard's colour system: one value type holding every semantic surface, text and accent
@@ -57,9 +58,19 @@ struct Theme: Equatable, Sendable {
 }
 
 extension Theme {
-    /// The palette phase 1 ships as the fixed default. Phase 2's settings window replaces this single
-    /// constant with a preference read — the one seam the theme selection lives behind.
+    /// The palette rendered in isolation (a preview, a test) before a preference is injected. The
+    /// live app no longer reads this constant — it maps `Preferences.theme` through `init(_:)` — but
+    /// the `EnvironmentKey` still needs a standalone default, and `slate` is it.
     static let `default` = Theme.slate
+
+    /// Maps a stored `ThemeChoice` to its palette. This is the seam that replaced phase 1's fixed
+    /// `Theme.default` constant: the live theme now follows `Preferences.theme`.
+    init(_ choice: ThemeChoice) {
+        switch choice {
+        case .slate: self = .slate
+        case .claude: self = .claude
+        }
+    }
 
     /// Cool blue-grey. The default.
     static let slate = Theme(

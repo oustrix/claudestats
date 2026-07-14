@@ -32,7 +32,8 @@ private func blocksOnDisk(_ file: URL) -> [BlockConfig] {
     try Data(malformedLayoutJSON.utf8).write(to: file)
 
     let model = DashboardModel(
-        stats: await loadedStore(), layoutStore: LayoutStore(fileURL: file), home: home)
+        stats: await loadedStore(), layoutStore: LayoutStore(fileURL: file),
+        preferencesStore: scratchPreferencesStore(besides: file), home: home)
 
     #expect(model.wasReset)
     #expect(model.blocks == Layout.default.blocks)
@@ -44,7 +45,8 @@ private func blocksOnDisk(_ file: URL) -> [BlockConfig] {
     try Data(skippedTypeLayoutJSON.utf8).write(to: file)
 
     let model = DashboardModel(
-        stats: await loadedStore(), layoutStore: LayoutStore(fileURL: file), home: home)
+        stats: await loadedStore(), layoutStore: LayoutStore(fileURL: file),
+        preferencesStore: scratchPreferencesStore(besides: file), home: home)
 
     #expect(model.skipped == [.unknownType("flameGraph")])
     #expect(model.wasReset == false)
@@ -58,7 +60,8 @@ private func blocksOnDisk(_ file: URL) -> [BlockConfig] {
         try makeReadOnly()
 
         let model = DashboardModel(
-            stats: await loadedStore(), layoutStore: LayoutStore(fileURL: file), home: home)
+            stats: await loadedStore(), layoutStore: LayoutStore(fileURL: file),
+        preferencesStore: scratchPreferencesStore(besides: file), home: home)
 
         #expect(model.wasReset)
         #expect(model.persistenceError != nil)
@@ -143,7 +146,8 @@ private func blocksOnDisk(_ file: URL) -> [BlockConfig] {
         try Data(malformedLayoutJSON.utf8).write(to: file)
         try makeReadOnly()
         let model = DashboardModel(
-            stats: await loadedStore(), layoutStore: LayoutStore(fileURL: file), home: home)
+            stats: await loadedStore(), layoutStore: LayoutStore(fileURL: file),
+        preferencesStore: scratchPreferencesStore(besides: file), home: home)
         #expect(model.wasReset)
         #expect(model.persistenceError != nil)
 
@@ -160,7 +164,8 @@ private func blocksOnDisk(_ file: URL) -> [BlockConfig] {
     defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
     try Data(skippedTypeLayoutJSON.utf8).write(to: file)
     let model = DashboardModel(
-        stats: await loadedStore(), layoutStore: LayoutStore(fileURL: file), home: home)
+        stats: await loadedStore(), layoutStore: LayoutStore(fileURL: file),
+        preferencesStore: scratchPreferencesStore(besides: file), home: home)
     #expect(model.skipped.isEmpty == false)
 
     model.dismissNotices()
@@ -192,7 +197,8 @@ private func blocksOnDisk(_ file: URL) -> [BlockConfig] {
     defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
     let model = DashboardModel(
         stats: StatsStore(source: StubEventSource(events: [])),
-        layoutStore: LayoutStore(fileURL: file), home: home)
+        layoutStore: LayoutStore(fileURL: file),
+        preferencesStore: scratchPreferencesStore(besides: file), home: home)
 
     #expect(model.scan == nil)
     #expect(model.events.isEmpty)
@@ -203,7 +209,8 @@ private func blocksOnDisk(_ file: URL) -> [BlockConfig] {
     defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
     let events = [makeEvent(messageID: "a"), makeEvent(messageID: "b")]
     let model = DashboardModel(
-        stats: await loadedStore(events), layoutStore: LayoutStore(fileURL: file), home: home)
+        stats: await loadedStore(events), layoutStore: LayoutStore(fileURL: file),
+        preferencesStore: scratchPreferencesStore(besides: file), home: home)
 
     #expect(model.scan != nil)
     #expect(model.events.map(\.messageID) == ["a", "b"])
