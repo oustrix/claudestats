@@ -215,3 +215,49 @@ private func blocksOnDisk(_ file: URL) -> [BlockConfig] {
     #expect(model.scan != nil)
     #expect(model.events.map(\.messageID) == ["a", "b"])
 }
+
+// MARK: - Breakdown detail modal state
+
+@MainActor @Test func expandBreakdownRecordsTheTargetAndReplacesAPriorOne() async throws {
+    let file = try makeScratchLayoutFile("expand-breakdown")
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    let a = BlockConfig(type: .breakdown, timeframe: .last30Days, dimension: .model)
+    let b = BlockConfig(type: .breakdown, timeframe: .last30Days, dimension: .tool)
+    let model = await seededModel([a, b], file: file)
+
+    #expect(model.expandedBreakdown == nil)
+
+    model.expandBreakdown(a)
+    #expect(model.expandedBreakdown == a)
+
+    // Opening another card replaces the target — only one modal at a time.
+    model.expandBreakdown(b)
+    #expect(model.expandedBreakdown == b)
+}
+
+@MainActor @Test func collapseBreakdownClearsTheTarget() async throws {
+    let file = try makeScratchLayoutFile("collapse-breakdown")
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    let a = BlockConfig(type: .breakdown, timeframe: .last30Days, dimension: .project)
+    let model = await seededModel([a], file: file)
+
+    model.expandBreakdown(a)
+    model.collapseBreakdown()
+
+    #expect(model.expandedBreakdown == nil)
+}
+
+/// Opening or closing the detail modal is transient UI state: it must not rewrite the layout file.
+@MainActor @Test func expandingABreakdownDoesNotPersistTheLayout() async throws {
+    let file = try makeScratchLayoutFile("expand-no-persist")
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    let a = BlockConfig(type: .breakdown, timeframe: .last30Days, dimension: .model)
+    let model = await seededModel([a], file: file)
+    let before = blocksOnDisk(file)
+
+    model.expandBreakdown(a)
+    model.collapseBreakdown()
+
+    #expect(blocksOnDisk(file) == before)
+    #expect(model.persistenceError == nil)
+}
