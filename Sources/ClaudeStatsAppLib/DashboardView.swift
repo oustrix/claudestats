@@ -38,6 +38,16 @@ public struct DashboardView: View {
             .sheet(isPresented: $showingSettings) {
                 SettingsView(model: model).environment(\.theme, theme)
             }
+            // The breakdown detail modal. `item:` binds to the transient `expandedBreakdown`; a
+            // dismissal (the ✕, Esc, or a click-away) sets it nil, which routes through `collapse`.
+            .sheet(
+                item: Binding(
+                    get: { model.expandedBreakdown },
+                    set: { if $0 == nil { model.collapseBreakdown() } })
+            ) { block in
+                BreakdownDetailView(block: block, events: model.events, home: model.home)
+                    .environment(\.theme, theme)
+            }
             .task {
                 await model.stats.refresh()
                 while !Task.isCancelled {
@@ -163,6 +173,10 @@ private struct BlockCard: View {
                 Text(block.type.fixedWindowLabel ?? block.timeframe.title)
                     .font(.caption).foregroundStyle(theme.mut)
                 Spacer()
+                // A breakdown card can expand its top-N into a full-ranking modal.
+                if block.type == .breakdown {
+                    BreakdownExpandButton { model.expandBreakdown(block) }
+                }
                 controls
             }
             body(for: block)

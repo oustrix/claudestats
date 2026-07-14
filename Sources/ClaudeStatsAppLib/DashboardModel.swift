@@ -23,6 +23,13 @@ final class DashboardModel {
     let pricing: Pricing
 
     private(set) var blocks: [BlockConfig]
+
+    /// The breakdown card whose full ranked list is shown in the detail modal, or none. Transient UI
+    /// state — a modal is not part of the saved dashboard — so it is deliberately outside `persist()`
+    /// and never reaches `layout.json`. The whole `BlockConfig` is held, not just the dimension, so
+    /// the modal reflects the exact card (its metric and timeframe) that was expanded.
+    private(set) var expandedBreakdown: BlockConfig?
+
     /// Blocks the layout named that this build could not render.
     private(set) var skipped: [SkippedBlock]
     /// The layout file was unreadable and has been replaced by the default.
@@ -95,6 +102,17 @@ final class DashboardModel {
         guard let index = blocks.firstIndex(where: { $0.id == block.id }) else { return }
         blocks[index] = block
         persist()
+    }
+
+    /// Opens the full-ranking detail modal for `block`, replacing any card already expanded — one
+    /// modal at a time. Not persisted: assigning here never calls `persist()`.
+    func expandBreakdown(_ block: BlockConfig) {
+        expandedBreakdown = block
+    }
+
+    /// Closes the detail modal.
+    func collapseBreakdown() {
+        expandedBreakdown = nil
     }
 
     func dismissNotices() {
