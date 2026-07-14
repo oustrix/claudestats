@@ -58,6 +58,9 @@ final class DashboardModel {
         persistenceError = loaded.persistenceError.map { String(describing: $0) }
     }
 
+    /// The path to the layout file, for the settings sheet to display.
+    var layoutFileURL: URL { layoutStore.fileURL }
+
     var scan: ScanResult? {
         if case .loaded(let result) = stats.state { result } else { nil }
     }

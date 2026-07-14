@@ -91,7 +91,8 @@ public struct Preferences: Codable, Equatable, Sendable {
 /// something to hand-edit. Simpler than `LayoutStore` because a settings file has no per-block
 /// migration to report; a corrupt file is logged and answered with defaults.
 public struct PreferencesStore: Sendable {
-    private let fileURL: URL
+    /// Where the settings live. Public so the settings sheet can show the user the path it edits.
+    public let fileURL: URL
 
     public init(fileURL: URL) {
         self.fileURL = fileURL

@@ -4,10 +4,12 @@ import SwiftUI
 public struct DashboardView: View {
     @State private var model: DashboardModel
     @State private var editing: BlockConfig?
+    @State private var showingSettings = false
 
-    /// The active theme. A single fixed default in phase 1; phase 2's settings window will drive
-    /// `Theme.default` (or inject a different value here) from a stored preference.
-    private let theme = Theme.default
+    /// The live theme, mapped from the stored preference. This is the seam phase 1 left behind: the
+    /// fixed `Theme.default` constant is gone, and selecting a theme in settings recolors the app
+    /// because the view re-reads `model.preferences.theme`.
+    private var theme: Theme { Theme(model.preferences.theme) }
 
     /// The executable constructs this with no argument. Tests reach the same view with a seeded model
     /// through the internal initializer, so the empty/failure state screens can be asserted without a
@@ -19,10 +21,6 @@ public struct DashboardView: View {
     init(model: DashboardModel) {
         _model = State(initialValue: model)
     }
-
-    /// The refresh cadence lives here rather than in the store: a policy you can see is a policy
-    /// you can change, and a store with a timer inside cannot be tested without waiting for it.
-    private let refreshInterval = Duration.seconds(30)
 
     public var body: some View {
         content
@@ -36,10 +34,16 @@ public struct DashboardView: View {
             .toolbar { toolbar }
             .toolbarBackground(theme.tb, for: .windowToolbar)
             .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
+            .sheet(isPresented: $showingSettings) {
+                SettingsView(model: model).environment(\.theme, theme)
+            }
             .task {
                 await model.stats.refresh()
                 while !Task.isCancelled {
-                    try? await Task.sleep(for: refreshInterval)
+                    // Read each tick: changing the interval in settings takes effect on the next
+                    // cycle without a relaunch. The refresh cadence lives here rather than in the
+                    // store — a policy you can see is a policy you can change.
+                    try? await Task.sleep(for: .seconds(model.preferences.refreshInterval.rawValue))
                     // Consults the scan state first: an untouched transcript tree costs no parsing.
                     await model.stats.refresh()
                 }
@@ -124,6 +128,13 @@ public struct DashboardView: View {
                 Label("Refresh", systemImage: "arrow.clockwise")
             }
             .keyboardShortcut("r")
+        }
+        ToolbarItem {
+            Button {
+                showingSettings = true
+            } label: {
+                Label("Settings", systemImage: "gearshape")
+            }
         }
     }
 }

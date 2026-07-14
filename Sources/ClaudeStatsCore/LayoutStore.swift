@@ -2,7 +2,8 @@ import Foundation
 
 /// Reads and writes the dashboard layout, treating the file as the user's, not the app's.
 public struct LayoutStore: Sendable {
-    private let fileURL: URL
+    /// Where the layout lives. Public so the settings sheet can show the user the path it edits.
+    public let fileURL: URL
 
     public init(fileURL: URL) {
         self.fileURL = fileURL
