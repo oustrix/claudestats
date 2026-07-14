@@ -235,11 +235,12 @@ private struct ThemedToggle: View {
             Capsule()
                 .fill(isOn ? theme.accent : theme.track)
                 .frame(width: 40, height: 24)
-                .overlay(
+                .overlay(alignment: isOn ? .trailing : .leading) {
                     Circle()
                         .fill(isOn ? theme.onAccent : theme.sub)
+                        .frame(width: 18, height: 18)
                         .padding(3)
-                        .frame(width: 24, alignment: isOn ? .trailing : .leading))
+                }
                 .overlay(Capsule().strokeBorder(theme.cardB, lineWidth: 1))
         }
         .buttonStyle(.plain)

@@ -11,13 +11,10 @@ struct CostBlockView: View {
     let pricing: Pricing
     @Environment(\.theme) private var theme
 
-    private var estimate: CostEstimate {
-        Aggregation.cost(over: events, pricing: pricing, timeframe: block.timeframe, now: .now)
-    }
-
     var body: some View {
-        let estimate = estimate
-        return VStack(alignment: .leading, spacing: 8) {
+        let estimate = Aggregation.cost(
+            over: events, pricing: pricing, timeframe: block.timeframe, now: .now)
+        VStack(alignment: .leading, spacing: 8) {
             Text(block.timeframe.title)
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(theme.mut)
