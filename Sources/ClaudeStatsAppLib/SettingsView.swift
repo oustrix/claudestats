@@ -23,6 +23,9 @@ struct SettingsView: View {
         .padding(24)
         .frame(width: 460)
         .background(theme.win)
+        // Drives the accent the system draws for controls that ignore `foregroundStyle`: the
+        // default-action "Done" button's prominent fill and the segmented picker's selected segment.
+        .tint(theme.accent)
         .environment(\.theme, theme)
         .preferredColorScheme(.dark)
     }
