@@ -19,6 +19,8 @@ public enum Log {
     public static let store = Logger(subsystem: subsystem, category: "store")
     /// The layout file: what was loaded, reset, skipped, or failed to persist.
     public static let layout = Logger(subsystem: subsystem, category: "layout")
+    /// The settings file: what was loaded, reset, or failed to persist.
+    public static let settings = Logger(subsystem: subsystem, category: "settings")
 
     /// Instruments "Points of Interest" — wrap a span to see it on the timeline.
     public static let signposter = OSSignposter(subsystem: subsystem, category: .pointsOfInterest)

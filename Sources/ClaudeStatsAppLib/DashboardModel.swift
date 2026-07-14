@@ -9,8 +9,14 @@ import Observation
 @MainActor
 @Observable
 final class DashboardModel {
-    let stats: StatsStore
+    /// The store the dashboard reads. A `var` because a transcripts-root change rebuilds it against
+    /// the new root; views read `model.stats` and re-render when it is swapped.
+    private(set) var stats: StatsStore
     let home: String
+
+    /// The user's live preferences. Observed, so the theme, refresh cadence and root take effect the
+    /// moment the settings sheet mutates them.
+    private(set) var preferences: Preferences
 
     private(set) var blocks: [BlockConfig]
     /// Blocks the layout named that this build could not render.
@@ -22,15 +28,28 @@ final class DashboardModel {
     private(set) var persistenceError: String?
 
     @ObservationIgnored private let layoutStore: LayoutStore
+    @ObservationIgnored private let preferencesStore: PreferencesStore
+    /// Builds a store for a root. The injection seam that lets a root change be tested without a
+    /// filesystem, and that keeps the default path a plain `StatsStore(transcriptRoot:)`.
+    @ObservationIgnored private let makeStore: @MainActor (URL) -> StatsStore
 
     init(
-        stats: StatsStore = StatsStore(),
+        stats: StatsStore? = nil,
         layoutStore: LayoutStore = LayoutStore(fileURL: LayoutStore.defaultURL),
-        home: String = NSHomeDirectory()
+        preferencesStore: PreferencesStore = PreferencesStore(fileURL: PreferencesStore.defaultURL),
+        home: String = NSHomeDirectory(),
+        makeStore: @escaping @MainActor (URL) -> StatsStore = { StatsStore(transcriptRoot: $0) }
     ) {
-        self.stats = stats
         self.layoutStore = layoutStore
+        self.preferencesStore = preferencesStore
         self.home = home
+        self.makeStore = makeStore
+
+        let preferences = preferencesStore.load()
+        self.preferences = preferences
+        // A test may inject a store directly; the app builds one against the stored root so an
+        // override is honored on launch.
+        self.stats = stats ?? makeStore(preferences.resolvedTranscriptRoot)
 
         let loaded = layoutStore.load()
         blocks = loaded.layout.blocks
@@ -38,6 +57,9 @@ final class DashboardModel {
         wasReset = loaded.wasReset
         persistenceError = loaded.persistenceError.map { String(describing: $0) }
     }
+
+    /// The path to the layout file, for the settings sheet to display.
+    var layoutFileURL: URL { layoutStore.fileURL }
 
     var scan: ScanResult? {
         if case .loaded(let result) = stats.state { result } else { nil }
@@ -81,6 +103,52 @@ final class DashboardModel {
             persistenceError = nil
         } catch {
             persistenceError = String(describing: error)
+        }
+    }
+
+    /// Restores the phase-1 default arrangement — the user-facing reset that was missing. Reuses the
+    /// same `persist()` the editing actions use, so there is one place layout writes happen.
+    func resetLayout() {
+        blocks = Layout.default.blocks
+        // A reset clears any prior skip/reset notices: the default layout names no unknown blocks.
+        skipped = []
+        wasReset = false
+        persist()
+    }
+
+    // MARK: - Preferences
+
+    /// Selecting a theme recolors the app immediately (the view reads `preferences.theme`) and
+    /// persists.
+    func setTheme(_ theme: ThemeChoice) {
+        preferences.theme = theme
+        persistPreferences()
+    }
+
+    /// The refresh loop reads `preferences.refreshInterval` each tick, so a change takes effect on
+    /// the next cycle without a relaunch.
+    func setRefreshInterval(_ interval: RefreshInterval) {
+        preferences.refreshInterval = interval
+        persistPreferences()
+    }
+
+    /// Points the store at a new transcripts root (or back to the default when `path` is nil), then
+    /// rebuilds and re-scans: a new root is a new corpus. An empty string means no override.
+    func setTranscriptRoot(_ path: String?) {
+        preferences.transcriptRoot = Preferences.normalizedRoot(path)
+        persistPreferences()
+        stats = makeStore(preferences.resolvedTranscriptRoot)
+        Task { await stats.refresh() }
+    }
+
+    /// A failed settings write is logged, not surfaced: the sheet has no error affordance, the file
+    /// is hand-editable, and the change still applies for the session. The invariant "never lie
+    /// silently" is met by the log line.
+    private func persistPreferences() {
+        do {
+            try preferencesStore.save(preferences)
+        } catch {
+            Log.settings.error("could not save settings: \(error, privacy: .public)")
         }
     }
 }

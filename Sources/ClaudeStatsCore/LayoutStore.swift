@@ -2,7 +2,8 @@ import Foundation
 
 /// Reads and writes the dashboard layout, treating the file as the user's, not the app's.
 public struct LayoutStore: Sendable {
-    private let fileURL: URL
+    /// Where the layout lives. Public so the settings sheet can show the user the path it edits.
+    public let fileURL: URL
 
     public init(fileURL: URL) {
         self.fileURL = fileURL
@@ -82,8 +83,15 @@ public struct LayoutStore: Sendable {
 
     /// `~/Library/Application Support/ClaudeStats/layout.json`
     public static var defaultURL: URL {
-        URL.applicationSupportDirectory
-            .appending(path: "ClaudeStats")
-            .appending(path: "layout.json")
+        URL.claudeStatsSupportDirectory.appending(path: "layout.json")
+    }
+}
+
+extension URL {
+    /// `~/Library/Application Support/ClaudeStats`, where the app keeps the two files it owns —
+    /// `layout.json` and `settings.json`. One definition so the directory name lives in a single
+    /// place: a mismatch would split the two files into different folders.
+    public static var claudeStatsSupportDirectory: URL {
+        URL.applicationSupportDirectory.appending(path: "ClaudeStats")
     }
 }

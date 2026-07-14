@@ -88,12 +88,20 @@ func withScratchLayoutFile(
     }
 }
 
+/// A preferences store beside a scratch layout `file`, so a model test drives its own `settings.json`
+/// in the same temp directory and never reads or writes the real `~/Library` one.
+func scratchPreferencesStore(besides file: URL) -> PreferencesStore {
+    PreferencesStore(fileURL: file.deletingLastPathComponent().appending(path: "settings.json"))
+}
+
 /// A model whose layout is seeded on `file` and whose store is the one given. Every model test points
-/// at its own temp file, so none touches the real `~/Library` layout.
+/// at its own temp file, so none touches the real `~/Library` layout or settings.
 @MainActor
 func seededModel(_ blocks: [BlockConfig], file: URL, stats: StatsStore) -> DashboardModel {
     try? LayoutStore(fileURL: file).save(Layout(blocks: blocks))
-    return DashboardModel(stats: stats, layoutStore: LayoutStore(fileURL: file), home: home)
+    return DashboardModel(
+        stats: stats, layoutStore: LayoutStore(fileURL: file),
+        preferencesStore: scratchPreferencesStore(besides: file), home: home)
 }
 
 /// The same, over a loaded store seeded with `events` — the common case for editing tests.
