@@ -26,11 +26,16 @@ struct BreakdownDetailView: View {
         return VStack(alignment: .leading, spacing: 16) {
             header(rowCount: rows.count)
             Divider().overlay(theme.bord)
-            if rows.isEmpty {
-                Text("Nothing in this timeframe").font(.callout).foregroundStyle(theme.sub)
-            } else {
-                list(rows)
+            // The card and the modal share one row renderer; the modal numbers its rows and paints
+            // the bar/value with the modal's own tokens (`bar`/`mut` vs the card's `accent`/`sub`).
+            ScrollView {
+                BreakdownRowList(
+                    rows: rows, barColor: theme.bar, valueColor: theme.mut, ranked: true,
+                    rowSpacing: 8
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxHeight: 460)
         }
         .padding(24)
         .frame(width: 460)
@@ -69,53 +74,6 @@ struct BreakdownDetailView: View {
         let noun = block.resolvedDimension.countedNoun(rowCount)
         let descriptor = block.resolvedDimension == .tool ? "invocations" : block.timeframe.title
         return "\(noun) · \(descriptor)"
-    }
-
-    private func list(_ rows: [BreakdownRow]) -> some View {
-        // Bars scale to the modal's own largest row (the top one), so the full list reads on its own
-        // terms rather than against the card's top-N maximum.
-        let largest = rows.first?.value ?? 0
-        return ScrollView {
-            VStack(spacing: 8) {
-                ForEach(Array(rows.enumerated()), id: \.element.label) { index, row in
-                    HStack(spacing: 12) {
-                        Text("\(index + 1)")
-                            .font(.callout)
-                            .monospacedDigit()
-                            .foregroundStyle(theme.faint)
-                            .frame(width: 24, alignment: .trailing)
-
-                        Text(row.label)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .foregroundStyle(theme.txt)
-                            .help(row.detail ?? row.label)
-                            .frame(width: 150, alignment: .leading)
-
-                        GeometryReader { geometry in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 3).fill(theme.track)
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(theme.bar)
-                                    .frame(
-                                        width: largest > 0
-                                            ? max(2, geometry.size.width * CGFloat(row.value) / CGFloat(largest))
-                                            : 0)
-                            }
-                        }
-                        .frame(height: 14)
-
-                        Text(row.value.compact)
-                            .font(.callout)
-                            .monospacedDigit()
-                            .foregroundStyle(theme.mut)
-                            .help(row.value.grouped)
-                            .frame(width: 60, alignment: .trailing)
-                    }
-                }
-            }
-        }
-        .frame(maxHeight: 460)
     }
 }
 
