@@ -50,6 +50,58 @@ import ViewInspector
     _ = try view.find(text: "Nothing in this timeframe")
 }
 
+// MARK: - BreakdownDetailView
+
+/// The card shows a top-N; the modal shows every row. With a limit of 2 and three models, the modal
+/// still lists all three — the full ranking, not the card's truncation.
+@MainActor @Test func breakdownDetailListsEveryRowBeyondTheCardLimit() throws {
+    let block = BlockConfig(
+        type: .breakdown, metric: .inputOutput, timeframe: .allTime, dimension: .model, limit: 2)
+    let events = [
+        makeEvent(messageID: "a", requestID: "a", model: "alpha-model"),
+        makeEvent(messageID: "b", requestID: "b", model: "beta-model"),
+        makeEvent(messageID: "c", requestID: "c", model: "gamma-model"),
+    ]
+    let view = try BreakdownDetailView(block: block, events: events, home: home).inspect()
+
+    _ = try view.find(text: "alpha-model")
+    _ = try view.find(text: "beta-model")
+    _ = try view.find(text: "gamma-model")
+}
+
+/// The modal header names the dimension and carries a count-and-scope pill: N rows and the timeframe.
+@MainActor @Test func breakdownDetailShowsTheDimensionTitleAndCountPill() throws {
+    let block = BlockConfig(
+        type: .breakdown, metric: .inputOutput, timeframe: .allTime, dimension: .model, limit: 8)
+    let events = [
+        makeEvent(messageID: "a", requestID: "a", model: "alpha-model"),
+        makeEvent(messageID: "b", requestID: "b", model: "beta-model"),
+    ]
+    let view = try BreakdownDetailView(block: block, events: events, home: home).inspect()
+
+    _ = try view.find(text: "By model")
+    _ = try view.find(text: "2 models · All time")
+}
+
+/// A tool breakdown ignores the metric and counts invocations, so its pill scope reads "invocations".
+@MainActor @Test func breakdownDetailToolPillReadsInvocations() throws {
+    let block = BlockConfig(
+        type: .breakdown, metric: .requests, timeframe: .allTime, dimension: .tool, limit: 8)
+    let events = [makeEvent(messageID: "a", requestID: "a", toolNames: ["Bash"])]
+    let view = try BreakdownDetailView(block: block, events: events, home: home).inspect()
+
+    _ = try view.find(text: "By tool")
+    _ = try view.find(text: "1 tool · invocations")
+}
+
+@MainActor @Test func breakdownDetailShowsAnEmptyMessageWithNoData() throws {
+    let block = BlockConfig(
+        type: .breakdown, metric: .inputOutput, timeframe: .allTime, dimension: .model, limit: 8)
+    let view = try BreakdownDetailView(block: block, events: [], home: home).inspect()
+
+    _ = try view.find(text: "Nothing in this timeframe")
+}
+
 // MARK: - SessionListBlockView
 
 @MainActor @Test func sessionListShowsOneRowPerSession() throws {

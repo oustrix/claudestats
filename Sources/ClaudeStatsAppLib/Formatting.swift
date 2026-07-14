@@ -47,6 +47,12 @@ extension BreakdownDimension {
         case .tool: "Tool"
         }
     }
+
+    /// "1 model", "3 models" — a row count with the dimension's noun, pluralized naively (every noun
+    /// here takes a plain `-s`). The detail modal's header pill reads from this.
+    func countedNoun(_ count: Int) -> String {
+        "\(count) \(title.lowercased())\(count == 1 ? "" : "s")"
+    }
 }
 
 extension BlockType {
