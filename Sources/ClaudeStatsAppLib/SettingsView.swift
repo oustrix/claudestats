@@ -63,26 +63,18 @@ struct SettingsView: View {
                     .foregroundStyle(theme.accent)
             }
             SettingsRow(label: "Refresh interval") {
-                Picker("", selection: refreshBinding) {
-                    ForEach(RefreshInterval.allCases, id: \.self) { interval in
-                        Text(interval.label).tag(interval)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .fixedSize()
+                // A theme-painted segmented control rather than `Picker(.segmented)`: on macOS the
+                // system segmented control colours its selected segment from the OS accent and
+                // ignores the theme, so it would not recolour when the theme changes.
+                SegmentedControl(
+                    options: RefreshInterval.allCases, selection: model.preferences.refreshInterval,
+                    label: \.label, select: model.setRefreshInterval)
             }
         }
     }
 
     private var transcriptsPath: String {
         model.preferences.transcriptRoot ?? "\(FileEventSource.defaultRoot.path()) (default)"
-    }
-
-    private var refreshBinding: Binding<RefreshInterval> {
-        Binding(
-            get: { model.preferences.refreshInterval },
-            set: { model.setRefreshInterval($0) })
     }
 
     /// A directories-only open panel. Legitimate because the app is non-sandboxed and reads arbitrary
@@ -169,6 +161,40 @@ private struct SettingsRow<Trailing: View>: View {
             Spacer(minLength: 12)
             trailing
         }
+    }
+}
+
+/// A theme-painted segmented control: the selected segment is filled with `theme.accent`, so it
+/// recolours with the theme where the native `Picker(.segmented)` would stay the OS accent.
+private struct SegmentedControl<Option: Hashable>: View {
+    let options: [Option]
+    let selection: Option
+    let label: (Option) -> String
+    let select: (Option) -> Void
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(options, id: \.self) { option in
+                let isSelected = option == selection
+                Button {
+                    select(option)
+                } label: {
+                    Text(label(option))
+                        .font(.callout)
+                        .frame(minWidth: 38)
+                        .padding(.vertical, 5)
+                        .padding(.horizontal, 6)
+                        .background(isSelected ? theme.accent : .clear)
+                        .foregroundStyle(isSelected ? theme.onAccent : theme.sub)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .background(theme.pill)
+        .clipShape(RoundedRectangle(cornerRadius: 7))
+        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(theme.cardB, lineWidth: 1))
+        .fixedSize()
     }
 }
 
