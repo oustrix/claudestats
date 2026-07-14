@@ -135,24 +135,25 @@ private func json(_ text: String) -> Data { Data(text.utf8) }
 
 // MARK: - Default layout
 
-/// The default dashboard is the mockup arrangement: three KPI cards, a wide time series, three
+/// The default dashboard is the mockup arrangement: four KPI cards, a wide time series, three
 /// breakdowns, a heatmap and a session list — with the spans that pack them into the grid.
 @Test func theDefaultLayoutMatchesTheMockupArrangement() {
     let blocks = Layout.default.blocks
 
     #expect(blocks.map(\.type) == [
-        .bigNumber, .bigNumber, .bigNumber, .timeSeries, .breakdown, .breakdown, .breakdown,
+        .bigNumber, .bigNumber, .cost, .bigNumber, .timeSeries, .breakdown, .breakdown, .breakdown,
         .heatmap, .sessionList,
     ])
-    #expect(blocks.map(\.span) == [4, 4, 4, 12, 4, 4, 4, 12, 12])
+    #expect(blocks.map(\.span) == [3, 3, 3, 3, 12, 4, 4, 4, 12, 12])
 }
 
-/// The three KPI cards headline input+output, requests and cache reads — the mockup's top row.
-@Test func theDefaultKPICardsAreInputOutputRequestsAndCacheRead() {
-    let kpis = Layout.default.blocks.prefix(3)
+/// The four KPI cards are input+output, requests, cost estimate and cache reads — the mockup's top
+/// row, with the cost card third.
+@Test func theDefaultKPICardsAreInputOutputRequestsCostAndCacheRead() {
+    let kpis = Layout.default.blocks.prefix(4)
 
-    #expect(kpis.map(\.type) == [.bigNumber, .bigNumber, .bigNumber])
-    #expect(kpis.map(\.metric) == [.inputOutput, .requests, .cacheRead])
+    #expect(kpis.map(\.type) == [.bigNumber, .bigNumber, .cost, .bigNumber])
+    #expect(kpis.map(\.metric) == [.inputOutput, .requests, nil, .cacheRead])
 }
 
 /// The three breakdowns rank model, project and tool — the mockup's middle row.

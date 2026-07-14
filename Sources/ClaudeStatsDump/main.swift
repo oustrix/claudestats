@@ -90,6 +90,21 @@ printBreakdown("By model (input + output)", .model, metric: .inputOutput)
 printBreakdown("By project (input + output)", .project, metric: .inputOutput)
 printBreakdown("By tool (invocations)", .tool, metric: .requests)
 
+// Cost is derived per model from the bundled default rates — reproducible, independent of any
+// user-edited pricing.json, so a cross-check against ccusage/jq compares the same methodology.
+heading("Estimated cost (default pricing, all time)")
+let cost = Aggregation.cost(over: events, pricing: .default, timeframe: .allTime)
+func dollars(_ value: Double) -> String {
+    value.formatted(.number.precision(.fractionLength(2)))
+}
+print("total: $\(dollars(cost.total))")
+for (model, amount) in cost.perModel.sorted(by: { $0.value > $1.value }) {
+    print("  \(model.padding(toLength: 32, withPad: " ", startingAt: 0)) $\(dollars(amount))")
+}
+if !cost.unpricedModels.isEmpty {
+    print("unpriced (not costed): \(cost.unpricedModels.sorted().joined(separator: ", "))")
+}
+
 heading("Sessions")
 let sessions = Aggregation.sessions(from: events, home: home, timeframe: .allTime)
 print("count: \(sessions.count)")

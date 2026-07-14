@@ -18,6 +18,10 @@ final class DashboardModel {
     /// moment the settings sheet mutates them.
     private(set) var preferences: Preferences
 
+    /// The per-model rates the cost cards and per-session column price with. Loaded once from the
+    /// user's `pricing.json`; hand-edited rather than changed in the app, so it is not observed.
+    let pricing: Pricing
+
     private(set) var blocks: [BlockConfig]
     /// Blocks the layout named that this build could not render.
     private(set) var skipped: [SkippedBlock]
@@ -37,6 +41,7 @@ final class DashboardModel {
         stats: StatsStore? = nil,
         layoutStore: LayoutStore = LayoutStore(fileURL: LayoutStore.defaultURL),
         preferencesStore: PreferencesStore = PreferencesStore(fileURL: PreferencesStore.defaultURL),
+        pricingStore: PricingStore = PricingStore(fileURL: PricingStore.defaultURL),
         home: String = NSHomeDirectory(),
         makeStore: @escaping @MainActor (URL) -> StatsStore = { StatsStore(transcriptRoot: $0) }
     ) {
@@ -47,6 +52,7 @@ final class DashboardModel {
 
         let preferences = preferencesStore.load()
         self.preferences = preferences
+        self.pricing = pricingStore.load()
         // A test may inject a store directly; the app builds one against the stored root so an
         // override is honored on launch.
         self.stats = stats ?? makeStore(preferences.resolvedTranscriptRoot)
@@ -132,6 +138,13 @@ final class DashboardModel {
         persistPreferences()
     }
 
+    /// Toggling cost hides or shows the cost cards and the per-session cost column immediately (the
+    /// views read `preferences.showCost`) and persists.
+    func setShowCost(_ showCost: Bool) {
+        preferences.showCost = showCost
+        persistPreferences()
+    }
+
     /// Points the store at a new transcripts root (or back to the default when `path` is nil), then
     /// rebuilds and re-scans: a new root is a new corpus. An empty string means no override.
     func setTranscriptRoot(_ path: String?) {
@@ -161,6 +174,9 @@ extension BlockConfig {
         switch type {
         case .bigNumber:
             BlockConfig(type: type, metric: defaultMetric, timeframe: .last7Days)
+        case .cost:
+            // Cost carries no metric — its number is derived per model from the pricing.
+            BlockConfig(type: type, timeframe: .last30Days)
         case .timeSeries:
             BlockConfig(
                 type: type, metric: defaultMetric, timeframe: .last30Days, bucket: defaultBucket)
@@ -181,6 +197,7 @@ extension BlockConfig {
     var title: String {
         switch type {
         case .bigNumber: metric?.title ?? "Number"
+        case .cost: "Cost estimate"
         case .timeSeries: "\(metric?.title ?? "Tokens") over time"
         case .breakdown: "By \(dimension?.title.lowercased() ?? "dimension")"
         case .sessionList: "Sessions"

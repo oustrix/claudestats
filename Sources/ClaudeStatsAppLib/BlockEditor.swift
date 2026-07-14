@@ -9,7 +9,8 @@ struct BlockEditor: View {
 
     var body: some View {
         Form {
-            if block.type != .sessionList {
+            // Sessions and cost carry no metric — cost's number is derived per model, not counted.
+            if block.type != .sessionList && block.type != .cost {
                 Picker("Metric", selection: metric) {
                     ForEach(Metric.allCases, id: \.self) { metric in
                         Text(metric.title).tag(metric)

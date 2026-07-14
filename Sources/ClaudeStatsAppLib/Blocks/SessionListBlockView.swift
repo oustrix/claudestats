@@ -10,12 +10,16 @@ struct SessionListBlockView: View {
     let block: BlockConfig
     let events: [TranscriptEvent]
     let home: String
+    /// The pricing to cost each session with, and nil when cost is turned off — which also drops the
+    /// cost column. One flag drives both: no pricing in, no cost out.
+    var pricing: Pricing?
     @Environment(\.theme) private var theme
 
     private var sessions: [Session] {
         Array(
-            Aggregation.sessions(from: events, home: home, timeframe: block.timeframe, now: .now)
-                .prefix(block.resolvedLimit))
+            Aggregation.sessions(
+                from: events, home: home, timeframe: block.timeframe, now: .now, pricing: pricing
+            ).prefix(block.resolvedLimit))
     }
 
     var body: some View {
@@ -51,6 +55,16 @@ struct SessionListBlockView: View {
                             .foregroundStyle(theme.txt)
                             .help("\(session.messageCount) responses")
                             .frame(width: 60, alignment: .trailing)
+
+                        // Shown only when cost is on: `pricing` is nil off, so `estimatedCost` is nil.
+                        if let cost = session.estimatedCost {
+                            Text(cost.currency)
+                                .font(.callout)
+                                .monospacedDigit()
+                                .foregroundStyle(theme.accent)
+                                .help("Estimated cost")
+                                .frame(width: 70, alignment: .trailing)
+                        }
                     }
                 }
             }

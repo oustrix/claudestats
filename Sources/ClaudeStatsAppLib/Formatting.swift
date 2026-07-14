@@ -53,6 +53,7 @@ extension BlockType {
     var title: String {
         switch self {
         case .bigNumber: "Number"
+        case .cost: "Cost estimate"
         case .timeSeries: "Chart over time"
         case .breakdown: "Breakdown"
         case .sessionList: "Sessions"
@@ -63,6 +64,7 @@ extension BlockType {
     var symbol: String {
         switch self {
         case .bigNumber: "number"
+        case .cost: "dollarsign.circle"
         case .timeSeries: "chart.bar"
         case .breakdown: "list.bullet"
         case .sessionList: "clock"
@@ -77,7 +79,7 @@ extension BlockType {
     var fixedWindowLabel: String? {
         switch self {
         case .heatmap: "Last \(Aggregation.heatmapWeeks) weeks"
-        case .bigNumber, .timeSeries, .breakdown, .sessionList: nil
+        case .bigNumber, .cost, .timeSeries, .breakdown, .sessionList: nil
         }
     }
 }
@@ -89,6 +91,14 @@ extension Int {
 
     /// `2,041,714` — every digit, for a place the reader may want to check.
     var grouped: String { formatted(.number) }
+}
+
+extension Double {
+    /// `$142.50` — a dollar estimate, always two decimals. The cost figures are US dollars; this is
+    /// their one presentation, so the currency code lives in a single place.
+    var currency: String {
+        formatted(.currency(code: "USD").precision(.fractionLength(2)))
+    }
 }
 
 extension TimeInterval {

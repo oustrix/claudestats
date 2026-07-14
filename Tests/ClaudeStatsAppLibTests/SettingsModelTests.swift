@@ -106,3 +106,24 @@ private func loadPreferences(besides file: URL) -> Preferences {
 
     #expect(capturedRoots == [URL(filePath: "/on/disk")])
 }
+
+@MainActor @Test func settingShowCostUpdatesPreferencesAndPersists() async throws {
+    let file = try makeScratchLayoutFile("set-showcost")
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    let model = await seededModel([], file: file)
+    #expect(model.preferences.showCost == true)
+
+    model.setShowCost(false)
+
+    #expect(model.preferences.showCost == false)
+    #expect(loadPreferences(besides: file).showCost == false)
+}
+
+/// The model loads its rates from the injected pricing store, so the cost cards have prices to draw.
+@MainActor @Test func theModelLoadsPricingFromItsStore() async throws {
+    let file = try makeScratchLayoutFile("model-pricing")
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    let model = await seededModel([], file: file)
+
+    #expect(model.pricing == .default)
+}

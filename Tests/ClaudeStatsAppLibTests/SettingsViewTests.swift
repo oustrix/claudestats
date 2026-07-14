@@ -42,3 +42,16 @@ import ViewInspector
 
     _ = try view.find(text: model.layoutFileURL.path())
 }
+
+/// The Cost section names its toggle and carries the "not a billing document" explanation.
+@MainActor @Test func settingsSheetShowsTheCostSection() async throws {
+    let file = try makeScratchLayoutFile("settings-cost")
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    let model = await seededModel([], file: file)
+
+    let view = try SettingsView(model: model).inspect()
+
+    _ = try view.find(text: "Show cost estimate")
+    // The section header is uppercased, matching the other sections' style.
+    _ = try view.find(text: "COST")
+}

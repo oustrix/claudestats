@@ -97,11 +97,18 @@ public struct DashboardView: View {
     /// proposal, so there is no width measurement to plumb back in.
     private var grid: some View {
         GridFlowLayout {
-            ForEach(model.blocks) { block in
+            ForEach(visibleBlocks) { block in
                 BlockCard(block: block, model: model, editing: $editing)
                     .gridSpan(block.span)
             }
         }
+    }
+
+    /// The blocks actually drawn. When cost is off, `.cost` blocks are filtered out — leaving a
+    /// trailing gap in the KPI row rather than rebalancing spans. Filtering hides cost blocks already
+    /// present; it never injects one into a layout that has none.
+    private var visibleBlocks: [BlockConfig] {
+        model.preferences.showCost ? model.blocks : model.blocks.filter { $0.type != .cost }
     }
 
     @ToolbarContentBuilder
@@ -171,12 +178,16 @@ private struct BlockCard: View {
         switch block.type {
         case .bigNumber:
             BigNumberBlockView(block: block, events: model.events)
+        case .cost:
+            CostBlockView(block: block, events: model.events, pricing: model.pricing)
         case .timeSeries:
             TimeSeriesBlockView(block: block, events: model.events)
         case .breakdown:
             BreakdownBlockView(block: block, events: model.events, home: model.home)
         case .sessionList:
-            SessionListBlockView(block: block, events: model.events, home: model.home)
+            SessionListBlockView(
+                block: block, events: model.events, home: model.home,
+                pricing: model.preferences.showCost ? model.pricing : nil)
         case .heatmap:
             HeatmapBlockView(block: block, events: model.events)
         }

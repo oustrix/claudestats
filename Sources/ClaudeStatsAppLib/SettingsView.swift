@@ -16,6 +16,7 @@ struct SettingsView: View {
             header
             appearance
             data
+            cost
             layout
             Divider().overlay(theme.bord)
             footer
@@ -88,6 +89,27 @@ struct SettingsView: View {
         panel.directoryURL = model.preferences.resolvedTranscriptRoot
         if panel.runModal() == .OK, let url = panel.url {
             model.setTranscriptRoot(url.path())
+        }
+    }
+
+    // MARK: - Cost
+
+    private var cost: some View {
+        Section(title: "Cost") {
+            SettingsRow(label: "Show cost estimate") {
+                // A theme-painted toggle: the macOS native `Toggle` tints its switch from the OS
+                // accent and ignores the environment, so — like the refresh segmented control — it
+                // would not recolour with the theme.
+                ThemedToggle(
+                    isOn: model.preferences.showCost, set: model.setShowCost)
+            }
+            Text(
+                "Estimated from average published prices. Not a billing document — the transcripts "
+                    + "record tokens, not dollars."
+            )
+            .font(.caption)
+            .foregroundStyle(theme.mut)
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -195,6 +217,34 @@ private struct SegmentedControl<Option: Hashable>: View {
         .clipShape(RoundedRectangle(cornerRadius: 7))
         .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(theme.cardB, lineWidth: 1))
         .fixedSize()
+    }
+}
+
+/// A theme-painted switch. Drawn by hand rather than a native `Toggle` for the same reason as the
+/// segmented control: macOS tints a `Toggle`'s switch from the OS accent and ignores the theme, so a
+/// native one would not recolour when the theme changes.
+private struct ThemedToggle: View {
+    let isOn: Bool
+    let set: (Bool) -> Void
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        Button {
+            set(!isOn)
+        } label: {
+            Capsule()
+                .fill(isOn ? theme.accent : theme.track)
+                .frame(width: 40, height: 24)
+                .overlay(
+                    Circle()
+                        .fill(isOn ? theme.onAccent : theme.sub)
+                        .padding(3)
+                        .frame(width: 24, alignment: isOn ? .trailing : .leading))
+                .overlay(Capsule().strokeBorder(theme.cardB, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Show cost estimate")
+        .accessibilityValue(isOn ? "on" : "off")
     }
 }
 

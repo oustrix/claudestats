@@ -8,6 +8,9 @@ public enum BlockType: String, Codable, CaseIterable, Sendable {
     case breakdown
     case sessionList
     case heatmap
+    /// A headline dollar cost estimate. Not a token metric — it carries only a timeframe, and its
+    /// number is derived per model from the pricing (see `Aggregation.cost`).
+    case cost
 }
 
 extension BlockType {
@@ -18,7 +21,7 @@ extension BlockType {
         switch self {
         case .timeSeries: [.day, .hour]
         case .heatmap: [.day, .week]
-        case .bigNumber, .breakdown, .sessionList: []
+        case .bigNumber, .breakdown, .sessionList, .cost: []
         }
     }
 }
@@ -112,15 +115,18 @@ public struct Layout: Equatable, Sendable {
 
     public static let currentVersion = 1
 
-    /// What a new user sees: the mockup arrangement on the twelve-column grid. A top row of three
-    /// KPI cards (span 4 each), a full-width time series, a row of three breakdowns (span 4 each),
-    /// then a full-width heatmap and session list. The headline metric is `inputOutput`, not
-    /// `allTokens`: cache reads are over 90% of every token, so a headline of "all tokens" would be
-    /// a headline about the cache.
+    /// What a new user sees: the mockup arrangement on the twelve-column grid. A top row of four KPI
+    /// cards (span 3 each) — input+output, requests, cost estimate, cache read — a full-width time
+    /// series, a row of three breakdowns (span 4 each), then a full-width heatmap and session list.
+    /// The headline metric is `inputOutput`, not `allTokens`: cache reads are over 90% of every token,
+    /// so a headline of "all tokens" would be a headline about the cache. The cost card sits third; a
+    /// `showCost = false` preference filters it out, leaving a trailing gap in the KPI row rather than
+    /// rebalancing spans.
     public static let `default` = Layout(blocks: [
-        BlockConfig(type: .bigNumber, metric: .inputOutput, timeframe: .last7Days, span: 4),
-        BlockConfig(type: .bigNumber, metric: .requests, timeframe: .last7Days, span: 4),
-        BlockConfig(type: .bigNumber, metric: .cacheRead, timeframe: .last7Days, span: 4),
+        BlockConfig(type: .bigNumber, metric: .inputOutput, timeframe: .last7Days, span: 3),
+        BlockConfig(type: .bigNumber, metric: .requests, timeframe: .last7Days, span: 3),
+        BlockConfig(type: .cost, timeframe: .last30Days, span: 3),
+        BlockConfig(type: .bigNumber, metric: .cacheRead, timeframe: .last7Days, span: 3),
         BlockConfig(
             type: .timeSeries, metric: .inputOutput, timeframe: .last30Days, bucket: .day, span: 12),
         BlockConfig(
