@@ -32,6 +32,18 @@ public struct Heatmap: Equatable, Sendable {
     public let thresholds: [Int]
 }
 
+/// An estimated dollar cost over a timeframe: the total, a per-model breakdown, and the model ids
+/// that had no rate. Cost is derived, never a token metric — the unpriced set is how the estimate
+/// stays honest instead of silently costing an unknown model at zero.
+public struct CostEstimate: Equatable, Sendable {
+    /// The estimated total in US dollars.
+    public let total: Double
+    /// Dollars per priced model id.
+    public let perModel: [String: Double]
+    /// Model ids seen in the window that this pricing has no rate for.
+    public let unpricedModels: Set<String>
+}
+
 /// One row of a breakdown: what it is, where it lives, and how much of the metric it accounts for.
 public struct BreakdownRow: Equatable, Sendable {
     public let label: String
@@ -139,19 +151,48 @@ public enum Aggregation {
     /// Groups events into sessions, newest first. A session's project and start come from its
     /// earliest message, so a run that crosses midnight stays one session — while its tokens still
     /// land on the days they were actually spent.
+    ///
+    /// A `pricing` attaches each session an `estimatedCost`, summed per the model of each of its
+    /// messages during the single pass — cost is per-model, so it cannot be re-derived from the
+    /// session's model-erased total usage. Without a pricing, `estimatedCost` is nil.
     public static func sessions(
         from events: [TranscriptEvent], home: String,
-        timeframe: Timeframe, now: Date = .distantPast, calendar: Calendar = .current
+        timeframe: Timeframe, now: Date = .distantPast, calendar: Calendar = .current,
+        pricing: Pricing? = nil
     ) -> [Session] {
         var accumulators: [String: SessionAccumulator] = [:]
         for message in Counting.messages(
             from: filter(events, timeframe: timeframe, now: now, calendar: calendar))
         {
-            accumulators[message.sessionID, default: SessionAccumulator()].add(message)
+            accumulators[message.sessionID, default: SessionAccumulator()].add(message, pricing: pricing)
         }
         return accumulators
             .compactMap { id, accumulator in accumulator.session(id: id, home: home) }
             .sorted { $0.start > $1.start }
+    }
+
+    /// The estimated dollar cost over a timeframe, derived from the deduplicated messages: each
+    /// message's tokens-by-kind times its model's rate-by-kind. Takes raw events and dedups
+    /// internally, like every other entry point, so a caller cannot apply the wrong counting rule to
+    /// cost. An unpriced model contributes nothing to the total and is surfaced in `unpricedModels`.
+    public static func cost(
+        over events: [TranscriptEvent], pricing: Pricing,
+        timeframe: Timeframe, now: Date = .distantPast, calendar: Calendar = .current
+    ) -> CostEstimate {
+        var total = 0.0
+        var perModel: [String: Double] = [:]
+        var unpriced: Set<String> = []
+        for message in Counting.messages(
+            from: filter(events, timeframe: timeframe, now: now, calendar: calendar))
+        {
+            guard let cost = pricing.cost(of: message.usage, model: message.model) else {
+                unpriced.insert(message.model)
+                continue
+            }
+            total += cost
+            perModel[message.model, default: 0] += cost
+        }
+        return CostEstimate(total: total, perModel: perModel, unpricedModels: unpriced)
     }
 
     /// Ranks a dimension by a metric, descending, ties broken by label so the order never flickers.
@@ -291,12 +332,18 @@ private struct SessionAccumulator {
     private var latest: Date?
     private var count = 0
     private var usage = TokenUsage.zero
+    /// nil until a pricing is supplied, then the running per-message-model cost sum.
+    private var cost: Double?
 
-    mutating func add(_ message: Message) {
+    mutating func add(_ message: Message, pricing: Pricing?) {
         if earliest == nil || message.timestamp < earliest!.timestamp { earliest = message }
         if latest == nil || message.timestamp > latest! { latest = message.timestamp }
         count += 1
         usage = usage + message.usage
+        if let pricing {
+            // Unpriced messages contribute nothing; the honest surfacing lives in `Aggregation.cost`.
+            cost = (cost ?? 0) + (pricing.cost(of: message.usage, model: message.model) ?? 0)
+        }
     }
 
     func session(id: String, home: String) -> Session? {
@@ -307,7 +354,8 @@ private struct SessionAccumulator {
             start: earliest.timestamp,
             end: latest,
             messageCount: count,
-            usage: usage
+            usage: usage,
+            estimatedCost: cost
         )
     }
 }

@@ -15,6 +15,24 @@ import Testing
     #expect(Preferences.default.theme == .slate)
     #expect(Preferences.default.refreshInterval == .thirty)
     #expect(Preferences.default.transcriptRoot == nil)
+    #expect(Preferences.default.showCost == true)
+}
+
+/// A phase-2 settings file has no `showCost` key: it must decode to true so cost stays visible.
+@Test func anAbsentShowCostDecodesToTrue() throws {
+    let json = Data(#"{"theme": "claude", "refreshInterval": 60}"#.utf8)
+
+    let decoded = try Preferences.decode(json)
+
+    #expect(decoded.showCost == true)
+    #expect(decoded.theme == .claude)
+}
+
+/// A stored `false` survives, so turning cost off persists across launches.
+@Test func showCostRoundTrips() throws {
+    let prefs = Preferences(showCost: false)
+
+    #expect(try Preferences.decode(Preferences.encode(prefs)).showCost == false)
 }
 
 /// A settings file is a flat bag of independent knobs: one stale value must not discard the rest.

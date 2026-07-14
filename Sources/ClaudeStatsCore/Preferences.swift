@@ -32,15 +32,21 @@ public struct Preferences: Codable, Equatable, Sendable {
     /// A path to read transcripts from. `nil` (absent or empty on disk) means the built-in default,
     /// `~/.claude/projects`.
     public var transcriptRoot: String?
+    /// Whether the dashboard shows the dollar cost estimate — the cost KPI card(s) and the per-session
+    /// cost column. Default true, matching the mockup. A phase-2 `settings.json` with no `showCost`
+    /// key decodes to true, so an older file keeps cost visible.
+    public var showCost: Bool
 
     public init(
         theme: ThemeChoice = .slate,
         refreshInterval: RefreshInterval = .thirty,
-        transcriptRoot: String? = nil
+        transcriptRoot: String? = nil,
+        showCost: Bool = true
     ) {
         self.theme = theme
         self.refreshInterval = refreshInterval
         self.transcriptRoot = transcriptRoot
+        self.showCost = showCost
     }
 
     /// Slate palette, a 30-second refresh, and the built-in transcripts root.
@@ -58,7 +64,7 @@ public struct Preferences: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case theme, refreshInterval, transcriptRoot
+        case theme, refreshInterval, transcriptRoot, showCost
     }
 
     /// Each field is read independently and coerced to its default when absent or unrecognized, so a
@@ -71,6 +77,8 @@ public struct Preferences: Codable, Equatable, Sendable {
         refreshInterval = rawInterval.flatMap(RefreshInterval.init(rawValue:)) ?? .thirty
         transcriptRoot = Preferences.normalizedRoot(
             try container.decodeIfPresent(String.self, forKey: .transcriptRoot))
+        // Absent (a phase-2 file) reads as true, so cost stays visible for an older settings file.
+        showCost = try container.decodeIfPresent(Bool.self, forKey: .showCost) ?? true
     }
 
     // `encode(to:)` is the compiler-synthesized one: a custom `init(from:)` and `CodingKeys` do not

@@ -43,4 +43,20 @@ public struct Session: Identifiable, Equatable, Sendable {
     public let end: Date
     public let messageCount: Int
     public let usage: TokenUsage
+    /// The estimated dollar cost, summed per the model of each of the session's messages. Present
+    /// only when `Aggregation.sessions` was given a pricing; nil otherwise.
+    public let estimatedCost: Double?
+
+    public init(
+        id: String, project: Project, start: Date, end: Date, messageCount: Int,
+        usage: TokenUsage, estimatedCost: Double? = nil
+    ) {
+        self.id = id
+        self.project = project
+        self.start = start
+        self.end = end
+        self.messageCount = messageCount
+        self.usage = usage
+        self.estimatedCost = estimatedCost
+    }
 }
