@@ -3,7 +3,7 @@ import SwiftUI
 
 /// A GitHub-style calendar heatmap: a grid of squares shaded by activity intensity. Unlike
 /// `TimeSeriesBlockView` it is not rasterised with `.drawingGroup()` — a static grid of rectangles
-/// is cheap to redraw, and flattening it would kill the per-cell hover.
+/// is cheap to redraw, and flattening it would kill the hover overlay.
 ///
 /// Colour is `.tint` at an opacity ramped by the cell's discrete level (1…4 → 0.25/0.5/0.75/1.0);
 /// an empty cell is `.quaternary`, distinct from any lit level. The levels and cut points come from
@@ -18,60 +18,28 @@ struct HeatmapBlockView: View {
     }
 
     var body: some View {
-        // The aggregation runs here and is handed down as a value, so hovering a cell — which lives
-        // in the child's @State — re-renders only the child, never re-running the aggregation.
+        // The aggregation runs here and is handed down as a value, so hover state — which lives in the
+        // grid below — re-renders only its own tooltip overlay, never re-running the aggregation.
         HeatmapContent(map: heatmap, unit: block.resolvedMetric.countsTokens ? "tokens" : "requests")
     }
 }
 
-/// Owns the hover selection and lays out the grid, the legend and the floating tooltip. Split from
-/// `HeatmapBlockView` so a hover cannot invalidate the aggregation above it.
-///
-/// A native tooltip (`.help`, and even an AppKit `toolTip`) never fired on cells this small, so the
-/// value is shown in a GitHub-style bubble drawn just above the hovered cell. It is a single overlay
-/// on the whole grid — positioned from the hovered cell's bounds anchor — so it floats over its
-/// neighbours with no per-cell z-order fights.
+/// Lays out the grid and the legend. Hover — and the floating value bubble — is owned by the grid
+/// below via `HeatmapGridHover`, not here: pointer tracking lives on the cell region, so this view is
+/// a plain, hover-agnostic stack.
 private struct HeatmapContent: View {
     let map: Heatmap
     let unit: String
-    @State private var hovered: HeatmapCell?
-    @State private var bubbleSize: CGSize = .zero
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if map.bucket == .week {
-                WeekHeatmapGrid(cells: map.cells, hovered: $hovered)
+                WeekHeatmapGrid(cells: map.cells, label: label(for:))
             } else {
-                DayHeatmapGrid(cells: map.cells, hovered: $hovered)
+                DayHeatmapGrid(cells: map.cells, label: label(for:))
             }
             HeatmapLegend(thresholds: map.thresholds)
         }
-        .overlayPreferenceValue(HoverAnchorKey.self) { anchor in
-            GeometryReader { proxy in
-                if let anchor, let cell = hovered {
-                    let rect = proxy[anchor]
-                    // Above the cell when there is room, otherwise flipped below; clamped so the
-                    // bubble never spills past the grid's edges.
-                    let above = rect.minY > bubbleSize.height + 10
-                    let y =
-                        above
-                        ? rect.minY - 6 - bubbleSize.height / 2
-                        : rect.maxY + 6 + bubbleSize.height / 2
-                    let halfWidth = bubbleSize.width / 2
-                    let x = min(max(rect.midX, halfWidth), proxy.size.width - halfWidth)
-                    TooltipBubble(text: label(for: cell))
-                        .background(
-                            GeometryReader { bubble in
-                                Color.clear.preference(
-                                    key: BubbleSizeKey.self, value: bubble.size)
-                            }
-                        )
-                        .position(x: x, y: y)
-                }
-            }
-            .allowsHitTesting(false)
-        }
-        .onPreferenceChange(BubbleSizeKey.self) { bubbleSize = $0 }
         // The grid is a fixed width; center it so it sits in the middle of the card rather than
         // hugging the left edge with a wide gap to its right.
         .frame(maxWidth: .infinity, alignment: .center)
@@ -100,12 +68,67 @@ private struct TooltipBubble: View {
     }
 }
 
-/// The bounds of the cell under the cursor, resolved by the grid's overlay to place the bubble.
-private struct HoverAnchorKey: PreferenceKey {
-    static let defaultValue: Anchor<CGRect>? = nil
-    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
-        value = value ?? nextValue()
+/// One hover tracker for a whole cell grid. The per-cell approach — a tracking area and a bounds
+/// anchor on each of the hundreds of squares — made every square re-render on each hover, so a scroll
+/// that swept the cursor across the grid fired a storm of full-grid re-renders (measured: ~28k square
+/// body evaluations in a few seconds). Here a single `onContinuousHover` reads the pointer and
+/// `locate` maps it to the cell and that cell's rect by pure grid geometry. The bubble is an overlay
+/// in the same local space, so a hover touches only this modifier's small overlay — never the cells.
+private struct HeatmapGridHover: ViewModifier {
+    let label: (HeatmapCell) -> String
+    let locate: (CGPoint) -> HoverTarget?
+    @State private var hovered: HoverTarget?
+    @State private var bubbleSize: CGSize = .zero
+
+    func body(content: Content) -> some View {
+        content
+            // A rectangular hit shape so the gaps between cells still track — otherwise a pointer in a
+            // gap reads as "outside" and the bubble flickers off between adjacent cells.
+            .contentShape(Rectangle())
+            .onContinuousHover(coordinateSpace: .local) { phase in
+                switch phase {
+                case .active(let point):
+                    let target = locate(point)
+                    // Publish only when the cell changes: the pointer fires many times inside one
+                    // cell, and each write would redraw the bubble's material for no visible change.
+                    if target?.cell != hovered?.cell { hovered = target }
+                case .ended:
+                    hovered = nil
+                }
+            }
+            .overlay {
+                GeometryReader { proxy in
+                    if let hovered {
+                        let rect = hovered.rect
+                        // Above the cell when there is room, otherwise flipped below; clamped so the
+                        // bubble never spills past the grid's edges.
+                        let above = rect.minY > bubbleSize.height + 10
+                        let y =
+                            above
+                            ? rect.minY - 6 - bubbleSize.height / 2
+                            : rect.maxY + 6 + bubbleSize.height / 2
+                        let halfWidth = bubbleSize.width / 2
+                        let x = min(max(rect.midX, halfWidth), proxy.size.width - halfWidth)
+                        TooltipBubble(text: label(hovered.cell))
+                            .background(
+                                GeometryReader { bubble in
+                                    Color.clear.preference(
+                                        key: BubbleSizeKey.self, value: bubble.size)
+                                }
+                            )
+                            .position(x: x, y: y)
+                    }
+                }
+                .allowsHitTesting(false)
+            }
+            .onPreferenceChange(BubbleSizeKey.self) { bubbleSize = $0 }
     }
+}
+
+/// The cell under the cursor and its rectangle in the grid's local space, from grid geometry.
+private struct HoverTarget: Equatable {
+    let cell: HeatmapCell
+    let rect: CGRect
 }
 
 /// The measured size of the bubble, so the overlay can center and clamp it before it is placed.
@@ -127,28 +150,17 @@ private func heatColor(_ level: Int, heat: [Color]) -> Color {
 private let cellSize: CGFloat = 11
 private let cellGap: CGFloat = 3
 
-/// One square. On hover it becomes the selection and publishes its bounds, so the grid's overlay can
-/// float the value bubble above it.
+/// One cell: a plain coloured square. Hover for the whole grid is tracked by `HeatmapGridHover`, so a
+/// square carries no tracking area or state of its own and never re-renders on a hover.
 private struct HeatmapSquare: View {
     let cell: HeatmapCell
     let size: CGFloat
-    @Binding var hovered: HeatmapCell?
     @Environment(\.theme) private var theme
 
     var body: some View {
         RoundedRectangle(cornerRadius: 2)
             .fill(heatColor(cell.level, heat: theme.heat))
             .frame(width: size, height: size)
-            .onHover { inside in
-                if inside {
-                    hovered = cell
-                } else if hovered == cell {
-                    hovered = nil
-                }
-            }
-            .anchorPreference(key: HoverAnchorKey.self, value: .bounds) {
-                hovered == cell ? $0 : nil
-            }
     }
 }
 
@@ -156,7 +168,7 @@ private struct HeatmapSquare: View {
 
 private struct DayHeatmapGrid: View {
     let cells: [HeatmapCell]
-    @Binding var hovered: HeatmapCell?
+    let label: (HeatmapCell) -> String
 
     /// One column per week: the cells arrive in date order, seven to a week.
     private var columns: [[HeatmapCell]] { cells.chunked(by: 7) }
@@ -164,7 +176,7 @@ private struct DayHeatmapGrid: View {
     var body: some View {
         let columns = columns
         // A static grid, sized to its content — no ScrollView: its elastic bounce let the grid be
-        // dragged, and it swallowed the per-cell hover.
+        // dragged, and it swallowed the hover.
         HStack(alignment: .top, spacing: cellGap) {
             weekdayLabels(firstColumn: columns.first ?? [])
             VStack(alignment: .leading, spacing: cellGap) {
@@ -173,12 +185,28 @@ private struct DayHeatmapGrid: View {
                     ForEach(Array(columns.enumerated()), id: \.offset) { _, column in
                         VStack(spacing: cellGap) {
                             ForEach(column, id: \.date) { cell in
-                                HeatmapSquare(cell: cell, size: cellSize, hovered: $hovered)
+                                HeatmapSquare(cell: cell, size: cellSize)
                             }
                         }
                     }
                 }
+                .modifier(HeatmapGridHover(label: label, locate: locate(columns: columns)))
             }
+        }
+    }
+
+    /// Maps a pointer in the cell grid's local space to the week column and weekday row it falls in —
+    /// the grid is a fixed lattice of `cellSize` squares on a `cellGap` pitch, so it is plain division.
+    private func locate(columns: [[HeatmapCell]]) -> (CGPoint) -> HoverTarget? {
+        { point in
+            let step = cellSize + cellGap
+            guard point.x >= 0, point.y >= 0 else { return nil }
+            let col = Int(point.x / step)
+            let row = Int(point.y / step)
+            guard col < columns.count, row < columns[col].count else { return nil }
+            let rect = CGRect(
+                x: CGFloat(col) * step, y: CGFloat(row) * step, width: cellSize, height: cellSize)
+            return HoverTarget(cell: columns[col][row], rect: rect)
         }
     }
 
@@ -232,19 +260,38 @@ private let weekdayLabelWidth: CGFloat = 26
 
 private struct WeekHeatmapGrid: View {
     let cells: [HeatmapCell]
-    @Binding var hovered: HeatmapCell?
+    let label: (HeatmapCell) -> String
+
+    /// A week cell is bigger than a day cell: one per week reads better enlarged.
+    private static let size = cellSize * 1.6
 
     private var rows: [[HeatmapCell]] { cells.chunked(by: 13) }
 
     var body: some View {
+        let rows = rows
         VStack(alignment: .leading, spacing: cellGap) {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 HStack(spacing: cellGap) {
                     ForEach(row, id: \.date) { cell in
-                        HeatmapSquare(cell: cell, size: cellSize * 1.6, hovered: $hovered)
+                        HeatmapSquare(cell: cell, size: Self.size)
                     }
                 }
             }
+        }
+        .modifier(HeatmapGridHover(label: label, locate: locate(rows: rows)))
+    }
+
+    /// Maps a pointer in the grid's local space to the quarter row and the week within it.
+    private func locate(rows: [[HeatmapCell]]) -> (CGPoint) -> HoverTarget? {
+        { point in
+            let step = Self.size + cellGap
+            guard point.x >= 0, point.y >= 0 else { return nil }
+            let col = Int(point.x / step)
+            let row = Int(point.y / step)
+            guard row < rows.count, col < rows[row].count else { return nil }
+            let rect = CGRect(
+                x: CGFloat(col) * step, y: CGFloat(row) * step, width: Self.size, height: Self.size)
+            return HoverTarget(cell: rows[row][col], rect: rect)
         }
     }
 }
