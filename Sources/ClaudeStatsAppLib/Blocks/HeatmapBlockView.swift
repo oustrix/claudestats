@@ -52,22 +52,6 @@ private struct HeatmapContent: View {
     }
 }
 
-/// The floating value bubble. One line, self-sizing, over a material so it reads above the grid.
-private struct TooltipBubble: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.caption)
-            .fixedSize()
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.quaternary, lineWidth: 0.5))
-            .shadow(color: .black.opacity(0.2), radius: 5, y: 2)
-    }
-}
-
 /// One hover tracker for a whole cell grid. The per-cell approach — a tracking area and a bounds
 /// anchor on each of the hundreds of squares — made every square re-render on each hover, so a scroll
 /// that swept the cursor across the grid fired a storm of full-grid re-renders (measured: ~28k square
@@ -99,29 +83,15 @@ private struct HeatmapGridHover: ViewModifier {
             .overlay {
                 GeometryReader { proxy in
                     if let hovered {
-                        let rect = hovered.rect
-                        // Above the cell when there is room, otherwise flipped below; clamped so the
-                        // bubble never spills past the grid's edges.
-                        let above = rect.minY > bubbleSize.height + 10
-                        let y =
-                            above
-                            ? rect.minY - 6 - bubbleSize.height / 2
-                            : rect.maxY + 6 + bubbleSize.height / 2
-                        let halfWidth = bubbleSize.width / 2
-                        let x = min(max(rect.midX, halfWidth), proxy.size.width - halfWidth)
                         TooltipBubble(text: label(hovered.cell))
-                            .background(
-                                GeometryReader { bubble in
-                                    Color.clear.preference(
-                                        key: BubbleSizeKey.self, value: bubble.size)
-                                }
-                            )
-                            .position(x: x, y: y)
+                            .measuredSize(into: $bubbleSize)
+                            .position(
+                                tooltipPosition(
+                                    target: hovered.rect, bubbleSize: bubbleSize, in: proxy.size))
                     }
                 }
                 .allowsHitTesting(false)
             }
-            .onPreferenceChange(BubbleSizeKey.self) { bubbleSize = $0 }
     }
 }
 
@@ -129,12 +99,6 @@ private struct HeatmapGridHover: ViewModifier {
 private struct HoverTarget: Equatable {
     let cell: HeatmapCell
     let rect: CGRect
-}
-
-/// The measured size of the bubble, so the overlay can center and clamp it before it is placed.
-private struct BubbleSizeKey: PreferenceKey {
-    static let defaultValue: CGSize = .zero
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) { value = nextValue() }
 }
 
 // MARK: - Cell colour
