@@ -296,3 +296,31 @@ private func blocksOnDisk(_ file: URL) -> [BlockConfig] {
     #expect(blocksOnDisk(file) == before)
     #expect(model.persistenceError == nil)
 }
+
+// MARK: - pricing
+
+@MainActor @Test func setRateUpdatesPricingAndPersists() async throws {
+    let file = try makeScratchLayoutFile("set-rate")
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    let model = await seededModel([], file: file)
+
+    let edited = ModelRate(input: 9, output: 90, cacheWrite: 11.25, cacheRead: 0.9)
+    model.setRate(family: "opus", rate: edited)
+
+    #expect(model.pricing.rates["opus"] == edited)
+    // Persisted: a fresh store over the same file reads the edit back.
+    let onDisk = scratchPricingStore(besides: file).load()
+    #expect(onDisk.rates["opus"] == edited)
+}
+
+@MainActor @Test func resetPricingRestoresDefaultsAndPersists() async throws {
+    let file = try makeScratchLayoutFile("reset-pricing")
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    let model = await seededModel([], file: file)
+    model.setRate(family: "opus", rate: ModelRate(input: 1, output: 1, cacheWrite: 1, cacheRead: 1))
+
+    model.resetPricing()
+
+    #expect(model.pricing == Pricing.default)
+    #expect(scratchPricingStore(besides: file).load() == Pricing.default)
+}

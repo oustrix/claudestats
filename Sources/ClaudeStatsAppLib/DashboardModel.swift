@@ -18,9 +18,10 @@ final class DashboardModel {
     /// moment the settings sheet mutates them.
     private(set) var preferences: Preferences
 
-    /// The per-model rates the cost cards and per-session column price with. Loaded once from the
-    /// user's `pricing.json`; hand-edited rather than changed in the app, so it is not observed.
-    let pricing: Pricing
+    /// The per-model rates the cost cards and per-session column price with. Loaded from the user's
+    /// `pricing.json` and now editable in the Pricing tab; observed, so an edit re-prices the cost
+    /// cards live. The file stays hand-editable too — both paths write the same `pricing.json`.
+    private(set) var pricing: Pricing
 
     private(set) var blocks: [BlockConfig]
 
@@ -46,6 +47,7 @@ final class DashboardModel {
 
     @ObservationIgnored private let layoutStore: LayoutStore
     @ObservationIgnored private let preferencesStore: PreferencesStore
+    @ObservationIgnored private let pricingStore: PricingStore
     /// Builds a store for a root. The injection seam that lets a root change be tested without a
     /// filesystem, and that keeps the default path a plain `StatsStore(transcriptRoot:)`.
     @ObservationIgnored private let makeStore: @MainActor (URL) -> StatsStore
@@ -60,6 +62,7 @@ final class DashboardModel {
     ) {
         self.layoutStore = layoutStore
         self.preferencesStore = preferencesStore
+        self.pricingStore = pricingStore
         self.home = home
         self.makeStore = makeStore
 
@@ -203,6 +206,32 @@ final class DashboardModel {
             try preferencesStore.save(preferences)
         } catch {
             Log.settings.error("could not save settings: \(error, privacy: .public)")
+        }
+    }
+
+    // MARK: - Pricing
+
+    /// Replaces one family's rate and persists. The view reads `pricing`, so the cost cards and the
+    /// per-session cost column re-price on the next render.
+    func setRate(family: String, rate: ModelRate) {
+        pricing.rates[family] = rate
+        persistPricing()
+    }
+
+    /// Restores the bundled published defaults and persists — the same shape as `resetLayout`.
+    func resetPricing() {
+        pricing = .default
+        persistPricing()
+    }
+
+    /// A failed pricing write is logged, not surfaced, for the same reason as `persistPreferences`:
+    /// the sheet has no error affordance, the file is hand-editable, and the change still applies for
+    /// the session. The "never lie silently" invariant is met by the log line.
+    private func persistPricing() {
+        do {
+            try pricingStore.save(pricing)
+        } catch {
+            Log.settings.error("could not save pricing: \(error, privacy: .public)")
         }
     }
 }
