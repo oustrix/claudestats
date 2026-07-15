@@ -5,7 +5,7 @@ MIN_MACOS := 26.0
 
 APPS_DIR ?= /Applications
 
-.PHONY: build test run dump app install clean
+.PHONY: build test run dump icon app install clean
 
 build:
 	swift build -c $(CONFIG)
@@ -21,13 +21,19 @@ run:
 dump:
 	@swift run -c release ClaudeStatsDump $(ROOT)
 
+# Regenerates icon/AppIcon.icns from icon/AppIcon.html via the system WebKit.
+# Only needs re-running when the artwork changes; `make app` calls it too.
+icon:
+	sh icon/build.sh
+
 # Assembles the .app by hand: SPM emits a bare executable, and macOS needs a bundle with an
 # Info.plist, otherwise the window never takes focus and the app stays invisible in the Dock.
 app: CONFIG = release
-app: build
+app: build icon
 	rm -rf $(APP)
-	mkdir -p $(APP)/Contents/MacOS
+	mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources
 	cp "$$(swift build -c release --show-bin-path)/ClaudeStatsApp" $(APP)/Contents/MacOS/ClaudeStats
+	cp icon/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns
 	printf '%s' \
 	  '<?xml version="1.0" encoding="UTF-8"?>' \
 	  '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
@@ -35,6 +41,7 @@ app: build
 	  '<key>CFBundleName</key><string>ClaudeStats</string>' \
 	  '<key>CFBundleDisplayName</key><string>ClaudeStats</string>' \
 	  '<key>CFBundleExecutable</key><string>ClaudeStats</string>' \
+	  '<key>CFBundleIconFile</key><string>AppIcon</string>' \
 	  '<key>CFBundleIdentifier</key><string>$(BUNDLE_ID)</string>' \
 	  '<key>CFBundlePackageType</key><string>APPL</string>' \
 	  '<key>CFBundleShortVersionString</key><string>0.1.0</string>' \
@@ -50,6 +57,7 @@ app: build
 install: app
 	rm -rf "$(APPS_DIR)/$(APP)"
 	cp -R $(APP) "$(APPS_DIR)/$(APP)"
+	/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$(APPS_DIR)/$(APP)"
 	@echo "installed: $(APPS_DIR)/$(APP)"
 
 clean:

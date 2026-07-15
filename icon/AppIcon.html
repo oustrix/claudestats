@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<!--
+  ClaudeStats app-icon artwork, ported verbatim from the Claude Design source
+  AppIcon.dc.html (project f5b4feaf-b8b2-48f9-bcba-ab93d784e202).
+
+  A single rounded-rect "glass · slate blue" tile: a radial slate-blue field,
+  a glass bevel, a center glow, and a 7x7 grid of rounded cells that brighten
+  toward the middle (the statistics / heatmap motif).
+
+  The outer drop-shadow from the design is intentionally dropped here so the
+  rounded corners rasterize to transparency and macOS can add its own shadow.
+
+  Rendered to PNG by render.swift (headless WebKit) and cut into an .icns by
+  build.sh. Query params let build.sh render each iconset size the design's way:
+    ?px=<css size>  CSS size of the tile (default 256)
+    ?glow=<blur>    drop-shadow blur for the bright center cells, in viewBox
+                    units (default 11, the design's hero value)
+  The rendered pixel size is chosen by render.swift, independent of px.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: transparent; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const PX = parseFloat(q.get('px')) || 256;
+  const GLOW = q.has('glow') ? parseFloat(q.get('glow')) : 11;
+
+  const rr = 0.225;
+  const fRadial = (x, y) => { const d = Math.hypot(x, y); return d < 1.2 ? 4 : d < 2.6 ? 3 : d < 4 ? 2 : d < 5.6 ? 1 : 0; };
+  const rGlass = ['#26334a', '#2b4d80', '#3a6dc0', '#5b9dff', '#a8ccff'];
+
+  const baseStyle = (px) =>
+    `position:relative;width:${px}px;height:${px}px;border-radius:${Math.round(px * rr)}px;overflow:hidden;` +
+    `background:radial-gradient(120% 120% at 50% 20%, #2f4d80 0%, #16233a 70%, #0c1220 100%);` +
+    `display:flex;align-items:center;justify-content:center;`;
+
+  const edgeStyle = (px) =>
+    `position:absolute;inset:0;border-radius:inherit;pointer-events:none;` +
+    `box-shadow:inset 0 1px 1px rgba(255,255,255,0.16), inset 0 0 0 1px rgba(255,255,255,0.05), ` +
+    `inset 0 -${px * 0.08}px ${px * 0.17}px rgba(0,0,0,0.4);`;
+
+  const overlayHTML = () =>
+    `<div style="position:absolute;inset:0;border-radius:inherit;pointer-events:none;` +
+    `background:radial-gradient(70% 60% at 50% 46%, rgba(110,160,255,0.35), rgba(0,0,0,0) 70%)"></div>`;
+
+  const gridHTML = (glowB) => {
+    const cols = 7, rows = 7, span = 76;
+    const cell = (span * 2) / cols, gap = cell * 0.16, sz = cell - gap, r = sz * 0.28;
+    const ox = -cols * cell / 2, oy = -rows * cell / 2;
+    let cells = '';
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+      const lvl = fRadial(x - 3, y - 3);
+      const cx = ox + x * cell + gap / 2, cy = oy + y * cell + gap / 2, bright = lvl >= 4;
+      const st = (bright && glowB) ? ` style="filter:drop-shadow(0 0 ${glowB}px rgba(120,170,255,0.9))"` : '';
+      cells += `<rect x="${cx}" y="${cy}" width="${sz}" height="${sz}" rx="${r}" ry="${r}" fill="${rGlass[lvl]}"${st}/>`;
+    }
+    return `<svg viewBox="-100 -100 200 200" width="72%" height="72%" style="position:relative;z-index:2">${cells}</svg>`;
+  };
+
+  document.getElementById('root').innerHTML =
+    `<div style="${baseStyle(PX)}"><div style="${edgeStyle(PX)}"></div>${overlayHTML()}${gridHTML(GLOW)}</div>`;
+  document.body.style.width = PX + 'px';
+  document.body.style.height = PX + 'px';
+</script>
+</body>
+</html>
