@@ -2,6 +2,16 @@ import AppKit
 import ClaudeStatsCore
 import SwiftUI
 
+/// Parses a rate field's text into a finite, non-negative dollars-per-Mtok value, or nil when the
+/// text is empty, non-numeric, negative, or not finite. Accepts surrounding whitespace and a leading
+/// `$` so a pasted "$5" is understood. Not `private` so the parsing is unit-tested without a view.
+func parseRate(_ text: String) -> Double? {
+    var trimmed = text.trimmingCharacters(in: .whitespaces)
+    if trimmed.hasPrefix("$") { trimmed.removeFirst() }
+    guard let value = Double(trimmed), value.isFinite, value >= 0 else { return nil }
+    return value
+}
+
 /// The settings sheet: a themed modal over the dashboard (not a native `Settings` scene), with an
 /// Appearance / Data / Layout stack. Every control is a thin wrapper over a `DashboardModel` method
 /// — the model owns the persistence and the live effect, so this view only presents and dispatches.

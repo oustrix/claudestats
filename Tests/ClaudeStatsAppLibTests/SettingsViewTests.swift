@@ -55,3 +55,18 @@ import ViewInspector
     // The section header is uppercased, matching the other sections' style.
     _ = try view.find(text: "COST")
 }
+
+@Test func parseRateAcceptsNonNegativeDecimals() {
+    #expect(parseRate("3") == 3)
+    #expect(parseRate("6.25") == 6.25)
+    #expect(parseRate("0") == 0)
+    #expect(parseRate(" 12.5 ") == 12.5)
+    #expect(parseRate("$5") == 5)
+}
+
+@Test func parseRateRejectsBadInput() {
+    #expect(parseRate("") == nil)
+    #expect(parseRate("abc") == nil)
+    #expect(parseRate("-1") == nil)
+    #expect(parseRate("1.2.3") == nil)
+}
