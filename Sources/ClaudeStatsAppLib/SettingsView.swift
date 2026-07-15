@@ -8,7 +8,11 @@ import SwiftUI
 func parseRate(_ text: String) -> Double? {
     var trimmed = text.trimmingCharacters(in: .whitespaces)
     if trimmed.hasPrefix("$") { trimmed.removeFirst() }
-    guard let value = Double(trimmed), value.isFinite, value >= 0 else { return nil }
+    // Bound the magnitude: no real per-Mtok rate approaches this, and an unbounded value would
+    // both persist garbage and overflow the Int conversion in `RateField.format`.
+    guard let value = Double(trimmed), value.isFinite, value >= 0, value <= 1_000_000 else {
+        return nil
+    }
     return value
 }
 
@@ -216,7 +220,7 @@ struct SettingsView: View {
                     setRate: { model.setRate(family: family, rate: $0) })
             }
 
-            SettingsRow(label: "Pricing file", detail: PricingStore.defaultURL.path()) {
+            SettingsRow(label: "Pricing file", detail: model.pricingFileURL.path()) {
                 Button("Reset…") { confirmingPricingReset = true }
                     .foregroundStyle(theme.accent)
             }
@@ -400,9 +404,14 @@ private struct RateField: View {
         }
     }
 
-    /// Formats a rate the way it is typed back — trimming a trailing `.0` so "3" shows as "3".
+    /// Formats a rate the way it is typed back — trimming a trailing `.0` so "3" shows as "3". Uses
+    /// `Int(exactly:)` so a hand-edited `pricing.json` holding a value beyond `Int.max` formats as a
+    /// plain string instead of trapping.
     private static func format(_ value: Double) -> String {
-        value == value.rounded() ? String(Int(value)) : String(value)
+        if value == value.rounded(), let asInt = Int(exactly: value) {
+            return String(asInt)
+        }
+        return String(value)
     }
 }
 

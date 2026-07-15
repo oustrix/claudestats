@@ -17,8 +17,9 @@ public struct ModelRate: Codable, Equatable, Sendable {
 }
 
 /// A price list, keyed by model *family* (`opus`, `sonnet`, `haiku`, `fable`) rather than by exact
-/// model id, so a new dated snapshot of a known family is priced without an edit. A user who wants a
-/// per-id override edits `pricing.json` — the file is theirs.
+/// model id, so a new dated snapshot of a known family is priced without an edit. Family rates are
+/// editable from the app's Pricing tab; a user who wants a per-id override edits `pricing.json`
+/// directly — the file is theirs.
 ///
 /// Cost is derived, never a token metric: it is the only way tokens turn into dollars, and it is
 /// computed per model from a `Message`'s usage, so a caller cannot sum a per-line, model-erased
@@ -33,7 +34,7 @@ public struct Pricing: Codable, Equatable, Sendable {
 
     /// Bundled defaults from Anthropic's currently published per-Mtok list prices. Cache-write uses
     /// the 5-minute-TTL multiplier (1.25x input); cache-read uses ~0.1x input. The user owns and
-    /// corrects these by hand-editing `pricing.json`.
+    /// corrects these in the Pricing tab or by hand-editing `pricing.json`.
     public static let `default` = Pricing(rates: [
         "opus": ModelRate(input: 5, output: 25, cacheWrite: 6.25, cacheRead: 0.5),
         "sonnet": ModelRate(input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3),

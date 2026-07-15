@@ -83,6 +83,9 @@ final class DashboardModel {
     /// The path to the layout file, for the settings sheet to display.
     var layoutFileURL: URL { layoutStore.fileURL }
 
+    /// The path to the pricing file, for the settings sheet to display.
+    var pricingFileURL: URL { pricingStore.fileURL }
+
     var scan: ScanResult? {
         if case .loaded(let result) = stats.state { result } else { nil }
     }

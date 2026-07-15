@@ -69,6 +69,10 @@ import ViewInspector
     #expect(parseRate("abc") == nil)
     #expect(parseRate("-1") == nil)
     #expect(parseRate("1.2.3") == nil)
+    #expect(parseRate("1e19") == nil)
+    #expect(parseRate("10000000000000000000") == nil)
+    #expect(parseRate("1000001") == nil)
+    #expect(parseRate("1000000") == 1_000_000)
 }
 
 /// The settings sheet now carries a General / Pricing tab bar; both titles are present.
@@ -98,4 +102,5 @@ import ViewInspector
     _ = try view.find(text: "Haiku")
     _ = try view.find(text: "Fable")
     _ = try view.find(text: "Pricing file")
+    _ = try view.find(text: model.pricingFileURL.path())
 }
