@@ -182,7 +182,11 @@ private struct BlockCard: View {
             body(for: block)
         }
         .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // Fill the row's height, not just its width: `GridFlowLayout` proposes every block in a row
+        // the height of the tallest one, so a card with fewer rows (a short breakdown next to a tall
+        // one) stretches to match instead of leaving a ragged bottom edge — `align-items: stretch`.
+        // Content stays pinned top-leading; the extra height is empty card, as in the mockup.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.card, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(theme.cardB, lineWidth: 1))
     }
