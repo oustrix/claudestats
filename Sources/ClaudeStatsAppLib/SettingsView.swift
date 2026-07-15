@@ -3,11 +3,15 @@ import ClaudeStatsCore
 import SwiftUI
 
 /// Parses a rate field's text into a finite, non-negative dollars-per-Mtok value, or nil when the
-/// text is empty, non-numeric, negative, or not finite. Accepts surrounding whitespace and a leading
-/// `$` so a pasted "$5" is understood. Not `private` so the parsing is unit-tested without a view.
+/// text is empty, non-numeric, negative, or not finite. Accepts surrounding whitespace, a leading
+/// `$` so a pasted "$5" is understood, and a comma decimal separator so a comma-locale person can
+/// type "6,25". Not `private` so the parsing is unit-tested without a view.
 func parseRate(_ text: String) -> Double? {
     var trimmed = text.trimmingCharacters(in: .whitespaces)
     if trimmed.hasPrefix("$") { trimmed.removeFirst() }
+    // A comma is a decimal separator here, not a thousands group: a rate is a small number and the
+    // field never shows grouping. "1,2,3" then reads as two separators and fails to parse, as it should.
+    trimmed = trimmed.replacingOccurrences(of: ",", with: ".")
     // Bound the magnitude: no real per-Mtok rate approaches this, and an unbounded value would
     // both persist garbage and overflow the Int conversion in `RateField.format`.
     guard let value = Double(trimmed), value.isFinite, value >= 0, value <= 1_000_000 else {

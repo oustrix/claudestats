@@ -64,6 +64,14 @@ import ViewInspector
     #expect(parseRate("$5") == 5)
 }
 
+/// A comma decimal separator is accepted, so a person in a comma-locale (ru/de/…) can type "6,25".
+@Test func parseRateAcceptsACommaDecimalSeparator() {
+    #expect(parseRate("6,25") == 6.25)
+    #expect(parseRate(" 12,5 ") == 12.5)
+    // Two separators are still nonsense, comma or dot.
+    #expect(parseRate("1,2,3") == nil)
+}
+
 @Test func parseRateRejectsBadInput() {
     #expect(parseRate("") == nil)
     #expect(parseRate("abc") == nil)
