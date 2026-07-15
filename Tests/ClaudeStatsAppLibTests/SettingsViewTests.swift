@@ -104,7 +104,7 @@ import ViewInspector
 
     let view = try SettingsView(model: model, initialTab: .pricing).inspect()
 
-    _ = try view.find(text: "PRICING")
+    _ = try view.find(text: "Token prices")
     _ = try view.find(text: "Opus")
     _ = try view.find(text: "Sonnet")
     _ = try view.find(text: "Haiku")

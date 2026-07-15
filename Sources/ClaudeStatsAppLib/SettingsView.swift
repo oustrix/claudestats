@@ -74,9 +74,10 @@ struct SettingsView: View {
         .preferredColorScheme(.dark)
     }
 
-    /// The original sections, now the General tab.
+    /// The original sections, now the General tab. A `Group`, not a nested `VStack`: the sections are
+    /// direct siblings under `body`'s stack, so they inherit its spacing instead of repeating it here.
     private var general: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        Group {
             appearance
             data
             cost
@@ -201,22 +202,39 @@ struct SettingsView: View {
 
     // MARK: - Pricing
 
-    /// The families shown, in the default price list's conventional order (most to least expensive),
-    /// not the dictionary's undefined order.
-    private static let pricingFamilies = ["opus", "sonnet", "haiku", "fable"]
+    /// The families to list: the known ones in canonical order, then any extra family a hand-edited
+    /// `pricing.json` added, so a family in the file is always shown and never silently dropped.
+    private var pricingFamilies: [String] {
+        let present = Set(model.pricing.rates.keys)
+        return Pricing.families.filter(present.contains) + present.subtracting(Pricing.families).sorted()
+    }
 
     private var pricing: some View {
-        Section(title: "Pricing") {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Token prices")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(theme.txt)
             Text(
                 "Estimated from average published prices, in US dollars per 1,000,000 tokens. Not a "
                     + "billing document — the transcripts record tokens, not dollars."
             )
-            .font(.caption)
-            .foregroundStyle(theme.mut)
+            .font(.callout)
+            .foregroundStyle(theme.sub)
             .fixedSize(horizontal: false, vertical: true)
 
-            PricingHeaderRow()
-            ForEach(Self.pricingFamilies, id: \.self) { family in
+            // Column headers over the four rate fields.
+            HStack(spacing: 8) {
+                Text("").frame(width: 56, alignment: .leading)
+                ForEach(["In", "Out", "Write", "Read"], id: \.self) { title in
+                    Text(title)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(theme.mut)
+                        .frame(width: 56, alignment: .trailing)
+                }
+            }
+            .padding(.top, 4)
+
+            ForEach(pricingFamilies, id: \.self) { family in
                 PricingRow(
                     family: family,
                     rate: model.pricing.rates[family] ?? ModelRate(
@@ -228,6 +246,7 @@ struct SettingsView: View {
                 Button("Reset…") { confirmingPricingReset = true }
                     .foregroundStyle(theme.accent)
             }
+            .padding(.top, 4)
         }
         .confirmationDialog(
             "Reset prices to the published defaults?", isPresented: $confirmingPricingReset
@@ -327,22 +346,6 @@ private struct SegmentedControl<Option: Hashable>: View {
     }
 }
 
-/// The column headers over the four rate fields.
-private struct PricingHeaderRow: View {
-    @Environment(\.theme) private var theme
-    var body: some View {
-        HStack(spacing: 8) {
-            Text("").frame(width: 56, alignment: .leading)
-            ForEach(["In", "Out", "Write", "Read"], id: \.self) { title in
-                Text(title)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(theme.mut)
-                    .frame(width: 56, alignment: .trailing)
-            }
-        }
-    }
-}
-
 /// One family's four editable rate fields. Each field commits on submit or focus loss: an invalid
 /// or negative value reverts to the current rate, a valid one calls `setRate` with the whole
 /// updated `ModelRate`. Editing per-field but writing the whole rate keeps `setRate` atomic.
@@ -395,8 +398,9 @@ private struct RateField: View {
             .focused($focused)
             .onSubmit(commitDraft)
             .onChange(of: focused) { _, isFocused in if !isFocused { commitDraft() } }
-            .onChange(of: value) { _, _ in text = Self.format(value) }
-            .onAppear { text = Self.format(value) }
+            // `initial: true` seeds the draft on first render, so this one modifier does the work the
+            // separate `.onAppear` used to; it also refreshes the field after a model change (Reset).
+            .onChange(of: value, initial: true) { _, _ in text = Self.format(value) }
     }
 
     private func commitDraft() {
