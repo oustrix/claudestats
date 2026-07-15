@@ -11,16 +11,16 @@ import ViewInspector
 
 // MARK: - BigNumberBlockView
 
-@MainActor @Test func bigNumberShowsTheFormattedTotalAndMetricTitle() throws {
+@MainActor @Test func bigNumberShowsTheFormattedTotal() throws {
     let block = BlockConfig(type: .bigNumber, metric: .inputOutput, timeframe: .allTime)
     let events = [
         makeEvent(messageID: "a", requestID: "a", usage: TokenUsage(input: 10, output: 5, cacheCreation: 0, cacheRead: 0))
     ]
     let view = try BigNumberBlockView(block: block, events: events).inspect()
 
-    // input + output = 15, formatted compactly.
+    // input + output = 15, formatted compactly. The metric name and timeframe are the card header's
+    // job (`BlockCard`), so the body no longer repeats them — it is just the figure and its delta.
     _ = try view.find(text: "15")
-    _ = try view.find(text: "Input + output")
 }
 
 // MARK: - BreakdownBlockView

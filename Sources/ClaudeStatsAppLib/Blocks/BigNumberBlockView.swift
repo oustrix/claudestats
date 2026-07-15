@@ -21,14 +21,10 @@ struct BigNumberBlockView: View {
     }
 
     var body: some View {
+        // The card header (drawn by `BlockCard`) already carries the metric name and the timeframe,
+        // so the body is just the figure and its delta — repeating the title and a "Last 7 days" pill
+        // here was the same two facts twice.
         VStack(alignment: .leading, spacing: 8) {
-            Text(block.timeframe.title)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(theme.mut)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(theme.pill, in: Capsule())
-
             Text(value.compact)
                 .font(.system(size: 40, weight: .semibold, design: .rounded))
                 .monospacedDigit()
@@ -36,10 +32,6 @@ struct BigNumberBlockView: View {
                 .contentTransition(.numericText())
                 // The exact figure is one hover away; the headline stays readable.
                 .help(value.grouped)
-
-            Text(block.resolvedMetric.title)
-                .font(.callout)
-                .foregroundStyle(theme.sub)
 
             if let delta { deltaLabel(delta) }
         }

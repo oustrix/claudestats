@@ -14,14 +14,9 @@ struct CostBlockView: View {
     var body: some View {
         let estimate = Aggregation.cost(
             over: events, pricing: pricing, timeframe: block.timeframe, now: .now)
+        // The card header (drawn by `BlockCard`) already shows "Cost estimate" and the timeframe, so
+        // the body drops the duplicate timeframe pill and keeps only the figure and its caveats.
         VStack(alignment: .leading, spacing: 8) {
-            Text(block.timeframe.title)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(theme.mut)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(theme.pill, in: Capsule())
-
             Text(estimate.total.currency)
                 .font(.system(size: 40, weight: .semibold, design: .rounded))
                 .monospacedDigit()
