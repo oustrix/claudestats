@@ -12,6 +12,18 @@ func parseRate(_ text: String) -> Double? {
     return value
 }
 
+/// The two Settings tabs. `general` holds the original sections; `pricing` holds the rate editor.
+/// Not `private`: a ViewInspector test constructs `SettingsView` on a chosen tab via `initialTab`.
+enum SettingsTab: String, CaseIterable, Hashable {
+    case general, pricing
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .pricing: "Pricing"
+        }
+    }
+}
+
 /// The settings sheet: a themed modal over the dashboard (not a native `Settings` scene), with an
 /// Appearance / Data / Layout stack. Every control is a thin wrapper over a `DashboardModel` method
 /// — the model owns the persistence and the live effect, so this view only presents and dispatches.
@@ -19,15 +31,28 @@ struct SettingsView: View {
     let model: DashboardModel
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
+    @State private var tab: SettingsTab
     @State private var confirmingReset = false
+    @State private var confirmingPricingReset = false
+
+    /// `initialTab` defaults to `.general`, so the app constructs `SettingsView(model:)` unchanged; a
+    /// test passes `.pricing` to render and inspect the Pricing tab, which `body`'s `switch` would
+    /// otherwise leave out of the tree.
+    init(model: DashboardModel, initialTab: SettingsTab = .general) {
+        self.model = model
+        _tab = State(initialValue: initialTab)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             header
-            appearance
-            data
-            cost
-            layout
+            SegmentedControl(
+                options: SettingsTab.allCases, selection: tab,
+                label: \.title, select: { tab = $0 })
+            switch tab {
+            case .general: general
+            case .pricing: pricing
+            }
             Divider().overlay(theme.bord)
             footer
         }
@@ -39,6 +64,16 @@ struct SettingsView: View {
         .tint(theme.accent)
         .environment(\.theme, theme)
         .preferredColorScheme(.dark)
+    }
+
+    /// The original sections, now the General tab.
+    private var general: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            appearance
+            data
+            cost
+            layout
+        }
     }
 
     private var header: some View {
@@ -156,6 +191,46 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Pricing
+
+    /// The families shown, in the default price list's conventional order (most to least expensive),
+    /// not the dictionary's undefined order.
+    private static let pricingFamilies = ["opus", "sonnet", "haiku", "fable"]
+
+    private var pricing: some View {
+        Section(title: "Pricing") {
+            Text(
+                "Estimated from average published prices, in US dollars per 1,000,000 tokens. Not a "
+                    + "billing document — the transcripts record tokens, not dollars."
+            )
+            .font(.caption)
+            .foregroundStyle(theme.mut)
+            .fixedSize(horizontal: false, vertical: true)
+
+            PricingHeaderRow()
+            ForEach(Self.pricingFamilies, id: \.self) { family in
+                PricingRow(
+                    family: family,
+                    rate: model.pricing.rates[family] ?? ModelRate(
+                        input: 0, output: 0, cacheWrite: 0, cacheRead: 0),
+                    setRate: { model.setRate(family: family, rate: $0) })
+            }
+
+            SettingsRow(label: "Pricing file", detail: PricingStore.defaultURL.path()) {
+                Button("Reset…") { confirmingPricingReset = true }
+                    .foregroundStyle(theme.accent)
+            }
+        }
+        .confirmationDialog(
+            "Reset prices to the published defaults?", isPresented: $confirmingPricingReset
+        ) {
+            Button("Reset prices", role: .destructive) { model.resetPricing() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your edited token prices will be replaced by the built-in published defaults.")
+        }
+    }
+
     // MARK: - Footer
 
     private var footer: some View {
@@ -241,6 +316,93 @@ private struct SegmentedControl<Option: Hashable>: View {
         .clipShape(RoundedRectangle(cornerRadius: 7))
         .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(theme.cardB, lineWidth: 1))
         .fixedSize()
+    }
+}
+
+/// The column headers over the four rate fields.
+private struct PricingHeaderRow: View {
+    @Environment(\.theme) private var theme
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("").frame(width: 56, alignment: .leading)
+            ForEach(["In", "Out", "Write", "Read"], id: \.self) { title in
+                Text(title)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(theme.mut)
+                    .frame(width: 56, alignment: .trailing)
+            }
+        }
+    }
+}
+
+/// One family's four editable rate fields. Each field commits on submit or focus loss: an invalid
+/// or negative value reverts to the current rate, a valid one calls `setRate` with the whole
+/// updated `ModelRate`. Editing per-field but writing the whole rate keeps `setRate` atomic.
+private struct PricingRow: View {
+    let family: String
+    let rate: ModelRate
+    let setRate: (ModelRate) -> Void
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(family.capitalized)
+                .foregroundStyle(theme.txt)
+                .frame(width: 56, alignment: .leading)
+            RateField(value: rate.input) { setRate(with(\.input, $0)) }
+            RateField(value: rate.output) { setRate(with(\.output, $0)) }
+            RateField(value: rate.cacheWrite) { setRate(with(\.cacheWrite, $0)) }
+            RateField(value: rate.cacheRead) { setRate(with(\.cacheRead, $0)) }
+        }
+    }
+
+    /// A copy of `rate` with one keypath replaced — so a single field edit produces a whole rate.
+    private func with(_ keyPath: WritableKeyPath<ModelRate, Double>, _ newValue: Double) -> ModelRate {
+        var updated = rate
+        updated[keyPath: keyPath] = newValue
+        return updated
+    }
+}
+
+/// A single numeric rate field. Holds a local text draft so intermediate keystrokes never re-price;
+/// commits on submit/blur via `parseRate`, reverting the draft when the text is invalid or negative.
+private struct RateField: View {
+    let value: Double
+    let commit: (Double) -> Void
+    @Environment(\.theme) private var theme
+    @State private var text: String = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        TextField("", text: $text)
+            .textFieldStyle(.plain)
+            .multilineTextAlignment(.trailing)
+            .font(.callout.monospaced())
+            .foregroundStyle(theme.txt)
+            .frame(width: 56)
+            .padding(.vertical, 4)
+            .padding(.horizontal, 6)
+            .background(theme.pill, in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(theme.cardB, lineWidth: 1))
+            .focused($focused)
+            .onSubmit(commitDraft)
+            .onChange(of: focused) { _, isFocused in if !isFocused { commitDraft() } }
+            .onChange(of: value) { _, _ in text = Self.format(value) }
+            .onAppear { text = Self.format(value) }
+    }
+
+    private func commitDraft() {
+        if let parsed = parseRate(text) {
+            commit(parsed)
+            text = Self.format(parsed)
+        } else {
+            text = Self.format(value)  // revert: invalid, negative, or empty
+        }
+    }
+
+    /// Formats a rate the way it is typed back — trimming a trailing `.0` so "3" shows as "3".
+    private static func format(_ value: Double) -> String {
+        value == value.rounded() ? String(Int(value)) : String(value)
     }
 }
 

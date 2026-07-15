@@ -70,3 +70,32 @@ import ViewInspector
     #expect(parseRate("-1") == nil)
     #expect(parseRate("1.2.3") == nil)
 }
+
+/// The settings sheet now carries a General / Pricing tab bar; both titles are present.
+@MainActor @Test func settingsSheetShowsTheTabBar() async throws {
+    let file = try makeScratchLayoutFile("settings-tabs")
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    let model = await seededModel([], file: file)
+
+    let view = try SettingsView(model: model).inspect()
+
+    _ = try view.find(text: "General")
+    _ = try view.find(text: "Pricing")
+}
+
+/// The Pricing tab lists every priced family and the pricing file path. Rendered directly via
+/// `initialTab`, since `body` only builds the active tab's subtree.
+@MainActor @Test func settingsSheetPricingTabShowsFamiliesAndFilePath() async throws {
+    let file = try makeScratchLayoutFile("settings-pricing")
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    let model = await seededModel([], file: file)
+
+    let view = try SettingsView(model: model, initialTab: .pricing).inspect()
+
+    _ = try view.find(text: "PRICING")
+    _ = try view.find(text: "Opus")
+    _ = try view.find(text: "Sonnet")
+    _ = try view.find(text: "Haiku")
+    _ = try view.find(text: "Fable")
+    _ = try view.find(text: "Pricing file")
+}
