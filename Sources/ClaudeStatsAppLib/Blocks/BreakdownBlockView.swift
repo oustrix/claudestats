@@ -54,6 +54,8 @@ struct BreakdownRowList: View {
     }
 }
 
+private let breakdownLabelWidth: CGFloat = 150
+
 /// One breakdown row: an optional rank, a truncating label, a proportional bar, and the value. The
 /// bar is drawn as a fraction of the list's largest row so the eye compares lengths, not numbers.
 struct BreakdownRowView: View {
@@ -63,6 +65,10 @@ struct BreakdownRowView: View {
     let barColor: Color
     let valueColor: Color
     @Environment(\.theme) private var theme
+    @State private var hovering = false
+    /// True when the label is wider than its column, so it is drawn truncated — the only case a
+    /// name tooltip has anything to add.
+    @State private var truncated = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -78,8 +84,23 @@ struct BreakdownRowView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .foregroundStyle(theme.txt)
-                .help(row.detail ?? row.label)
-                .frame(width: 150, alignment: .leading)
+                .frame(width: breakdownLabelWidth, alignment: .leading)
+                // The full label's intrinsic width, measured off-screen, tells us whether the on-screen
+                // one is truncated.
+                .background(widthProbe)
+                .onPreferenceChange(LabelWidthKey.self) { truncated = $0 > breakdownLabelWidth + 0.5 }
+                // A custom bubble rather than `.help`: the native tooltip only appears after the
+                // system's multi-second hover delay, and this reveals the full name at once. It floats
+                // above the row and is ignored for hit-testing, so it never eats the hover it depends on.
+                .onHover { hovering = $0 }
+                .overlay(alignment: .topLeading) {
+                    if hovering && truncated {
+                        NameTooltip(text: row.detail ?? row.label)
+                            .offset(y: -30)
+                            .allowsHitTesting(false)
+                            .zIndex(1)
+                    }
+                }
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
@@ -101,5 +122,48 @@ struct BreakdownRowView: View {
                 .help(row.value.grouped)
                 .frame(width: 60, alignment: .trailing)
         }
+    }
+
+    /// A hidden, unclipped copy of the label at its natural width; its measured width is published so
+    /// the row can tell whether the visible, column-clipped label is truncated. `hidden()` keeps it
+    /// out of the drawing, and it never affects layout because it lives in the label's `.background`.
+    private var widthProbe: some View {
+        Text(row.label)
+            .lineLimit(1)
+            .fixedSize()
+            .hidden()
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(key: LabelWidthKey.self, value: proxy.size.width)
+                }
+            )
+            .allowsHitTesting(false)
+    }
+}
+
+/// The measured natural width of a breakdown label, reported from the off-screen probe.
+private struct LabelWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+/// The instant hover bubble carrying a row's full name. Themed to sit above the dashboard's own
+/// surfaces, self-sizing to one line.
+private struct NameTooltip: View {
+    let text: String
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(theme.txt)
+            .fixedSize()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(theme.pill, in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(theme.cardB, lineWidth: 1))
+            .shadow(color: .black.opacity(0.35), radius: 6, y: 2)
     }
 }
