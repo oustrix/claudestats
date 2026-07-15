@@ -32,6 +32,12 @@ public struct Pricing: Codable, Equatable, Sendable {
         self.rates = rates
     }
 
+    /// The known model families this app prices, in the conventional most-to-least-expensive order
+    /// the Pricing tab lists them in. The single source of that order and roster: `default` carries a
+    /// rate for each, and the Pricing tab shows these first (then any extra family a `pricing.json`
+    /// adds), so neither can drift from the other by a hand edit in one place only.
+    public static let families = ["opus", "sonnet", "haiku", "fable"]
+
     /// Bundled defaults from Anthropic's currently published per-Mtok list prices. Cache-write uses
     /// the 5-minute-TTL multiplier (1.25x input); cache-read uses ~0.1x input. The user owns and
     /// corrects these in the Pricing tab or by hand-editing `pricing.json`.

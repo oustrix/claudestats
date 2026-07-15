@@ -40,11 +40,10 @@ import Testing
         model: "gpt-5.5") == nil)
 }
 
-/// The bundled defaults cover the current Claude families.
+/// The bundled defaults cover exactly the known families, and vice versa — the roster and the rates
+/// are one source of truth, so neither drifts from the other.
 @Test func defaultPricingCoversTheClaudeFamilies() {
-    for family in ["opus", "sonnet", "haiku", "fable"] {
-        #expect(Pricing.default.rates[family] != nil)
-    }
+    #expect(Set(Pricing.default.rates.keys) == Set(Pricing.families))
 }
 
 /// Round-trips through Codable unchanged, and encodes pretty for a person to edit.
