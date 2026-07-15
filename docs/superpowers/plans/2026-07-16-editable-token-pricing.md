@@ -212,21 +212,25 @@ git commit -m "feat(app): add a validated rate parser for the pricing editor"
 ### Task 3: Tab bar and the Pricing tab UI
 
 **Files:**
-- Modify: `Sources/ClaudeStatsAppLib/SettingsView.swift` (`body` at 14–32; `cost` caption at 107–114 to reuse; add `SettingsTab`, tab bar, pricing views)
+- Modify: `Sources/ClaudeStatsAppLib/SettingsView.swift` (`body`, the `model`/state declarations, the `cost` caption to reuse; add `SettingsTab`, the `initialTab` init, tab bar, pricing views). Note: `parseRate` from Task 2 already lives near the top of this file — do not redefine it.
+- Modify (append): `Tests/ClaudeStatsAppLibTests/SettingsViewTests.swift` (existing ViewInspector suite).
 
 **Interfaces:**
-- Consumes: `DashboardModel.pricing`, `setRate(family:rate:)`, `resetPricing()` (Task 1); `parseRate(_:)` (Task 2); existing `SegmentedControl`, `Section`, `SettingsRow`, `PricingStore.defaultURL`, `ModelRate`.
-- Produces: no cross-task interface — this is the leaf view.
+- Consumes: `DashboardModel.pricing`, `setRate(family:rate:)`, `resetPricing()` (Task 1); `parseRate(_:)` (Task 2, already in `SettingsView.swift`); existing `SegmentedControl`, `Section`, `SettingsRow`, `PricingStore.defaultURL`, `ModelRate`.
+- Produces: `SettingsView.init(model:initialTab:)` with an internal `SettingsTab` enum, so a ViewInspector test can render the Pricing tab directly.
 
-This task has no swift-testing coverage (the project tests logic in core/model, not SwiftUI views, per CLAUDE.md). Its deliverable is verified by a build and a manual run.
+**Testing note — this project DOES test the settings view.** `Tests/ClaudeStatsAppLibTests/SettingsViewTests.swift` already exists and uses **ViewInspector** (a test-only dependency in `Package.swift`) to assert that each settings section's copy is present. Two obligations follow:
+1. The existing tests must stay green. They inspect the default render, and General is the default tab, so the Appearance/Data/Cost/Layout copy they look for (`"Slate"`, `"Transcripts folder"`, `"Refresh interval"`, `"Layout file"`, `"Show cost estimate"`, `"COST"`, `model.layoutFileURL.path()`) still renders. Do not change those tests.
+2. The Pricing tab needs matching coverage. Because `body` renders only the active tab (`switch tab`), the test constructs the view on the Pricing tab via the `initialTab` seam below and asserts the Pricing copy.
 
-- [ ] **Step 1: Add the tab enum and tab state**
+- [ ] **Step 1: Add the tab enum, the `initialTab` seam, and tab state**
 
-In `Sources/ClaudeStatsAppLib/SettingsView.swift`, add the enum below the imports (after the `parseRate` helper from Task 2):
+In `Sources/ClaudeStatsAppLib/SettingsView.swift`, add the enum below the imports (after the `parseRate` helper from Task 2). It is `internal` (no `private`) so the test target can name it:
 
 ```swift
 /// The two Settings tabs. `general` holds the original sections; `pricing` holds the rate editor.
-private enum SettingsTab: String, CaseIterable, Hashable {
+/// Not `private`: a ViewInspector test constructs `SettingsView` on a chosen tab via `initialTab`.
+enum SettingsTab: String, CaseIterable, Hashable {
     case general, pricing
     var title: String {
         switch self {
@@ -237,12 +241,31 @@ private enum SettingsTab: String, CaseIterable, Hashable {
 }
 ```
 
-Add the state to `SettingsView` beside `confirmingReset` (line 12):
+Replace `SettingsView`'s stored properties and add an initializer so the starting tab is injectable
+(production callers keep constructing `SettingsView(model:)` — `initialTab` defaults to `.general`).
+The current declarations are `let model` (line 9) and `@State private var confirmingReset = false`
+(line 12); replace that region with:
 
 ```swift
-    @State private var tab: SettingsTab = .general
+    let model: DashboardModel
+    @Environment(\.theme) private var theme
+    @Environment(\.dismiss) private var dismiss
+    @State private var tab: SettingsTab
+    @State private var confirmingReset = false
     @State private var confirmingPricingReset = false
+
+    /// `initialTab` defaults to `.general`, so the app constructs `SettingsView(model:)` unchanged; a
+    /// test passes `.pricing` to render and inspect the Pricing tab, which `body`'s `switch` would
+    /// otherwise leave out of the tree.
+    init(model: DashboardModel, initialTab: SettingsTab = .general) {
+        self.model = model
+        _tab = State(initialValue: initialTab)
+    }
 ```
+
+(Keep whatever other `@Environment`/`@State` lines the file already had — the block above is the
+full replacement for the `model` + environment + `confirmingReset` declarations, now including the
+new `tab`/`confirmingPricingReset` state and the initializer.)
 
 - [ ] **Step 2: Split `body` into a tab bar and per-tab content**
 
@@ -420,12 +443,52 @@ private struct RateField: View {
 }
 ```
 
-- [ ] **Step 5: Build**
+- [ ] **Step 5: Add the ViewInspector tests for the tab bar and Pricing tab**
 
-Run: `make build 2>&1 | tail -15`
-Expected: `Build complete!` with no errors.
+Append to `Tests/ClaudeStatsAppLibTests/SettingsViewTests.swift` (alongside the existing settings
+tests, matching their style — construct a model over a scratch file, `.inspect()`, assert copy):
 
-- [ ] **Step 6: Manual verification**
+```swift
+/// The settings sheet now carries a General / Pricing tab bar; both titles are present.
+@MainActor @Test func settingsSheetShowsTheTabBar() async throws {
+    let file = try makeScratchLayoutFile("settings-tabs")
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    let model = await seededModel([], file: file)
+
+    let view = try SettingsView(model: model).inspect()
+
+    _ = try view.find(text: "General")
+    _ = try view.find(text: "Pricing")
+}
+
+/// The Pricing tab lists every priced family and the pricing file path. Rendered directly via
+/// `initialTab`, since `body` only builds the active tab's subtree.
+@MainActor @Test func settingsSheetPricingTabShowsFamiliesAndFilePath() async throws {
+    let file = try makeScratchLayoutFile("settings-pricing")
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    let model = await seededModel([], file: file)
+
+    let view = try SettingsView(model: model, initialTab: .pricing).inspect()
+
+    _ = try view.find(text: "PRICING")
+    _ = try view.find(text: "Opus")
+    _ = try view.find(text: "Sonnet")
+    _ = try view.find(text: "Haiku")
+    _ = try view.find(text: "Fable")
+    _ = try view.find(text: "Pricing file")
+}
+```
+
+- [ ] **Step 6: Run the suite (build + existing + new tests)**
+
+Run: `make test 2>&1 | tail -8`
+Expected: build succeeds; the two new tests pass; the four pre-existing `settingsSheet…` tests
+(`ShowsBothThemeCards`, `ShowsTheDataAndLayoutSections`, `ShowsTheLayoutFilePath`,
+`ShowsTheCostSection`) still pass — the tab restructure left the General tab as the default render.
+If a pre-existing test now fails, the General tab is not rendering its sections by default: fix the
+`body`/`general` wiring, do not edit those tests.
+
+- [ ] **Step 7: Manual verification**
 
 Run: `make run`
 
@@ -437,15 +500,15 @@ Verify, in the running app:
 5. Reset… → confirm — fields return to defaults (opus output back to `25`).
 6. Quit and relaunch — the edited/reset prices persist.
 
-- [ ] **Step 7: Cross-check counts are unaffected**
+- [ ] **Step 8: Cross-check counts are unaffected**
 
 Run: `make dump 2>&1 | tail -20`
 Expected: token counters (input/output/cache) are unchanged from before this feature — only dollar figures depend on pricing. (No token-counting logic changed, so this is a sanity check, not a diff.)
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add Sources/ClaudeStatsAppLib/SettingsView.swift
+git add Sources/ClaudeStatsAppLib/SettingsView.swift Tests/ClaudeStatsAppLibTests/SettingsViewTests.swift
 git commit -m "feat(app): add a Pricing tab to settings for editing token rates"
 ```
 
