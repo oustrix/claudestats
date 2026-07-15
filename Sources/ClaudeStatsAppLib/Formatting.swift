@@ -27,6 +27,16 @@ extension Timeframe {
         case .allTime: "All time"
         }
     }
+
+    /// The compact form shown in a card header's timeframe pill. The card title already names the
+    /// metric, so the pill drops the "Last —" prefix `title` carries for menus and modals.
+    var pillLabel: String {
+        switch self {
+        case .last7Days: "7 days"
+        case .last30Days: "30 days"
+        case .allTime: "All time"
+        }
+    }
 }
 
 extension Bucket {
@@ -86,6 +96,21 @@ extension BlockType {
         switch self {
         case .heatmap: "Last \(Aggregation.heatmapWeeks) weeks"
         case .bigNumber, .cost, .timeSeries, .breakdown, .sessionList: nil
+        }
+    }
+}
+
+extension BlockConfig {
+    /// The text the card header's timeframe pill shows. Most blocks scope by their short timeframe;
+    /// a time series appends its bucket ("30 days · by day"), a tool breakdown reads "invocations"
+    /// (it ignores the metric and counts calls, the same wording the detail modal uses), and the
+    /// heatmap shows its own fixed window rather than a timeframe it does not honor.
+    var headerPillLabel: String {
+        switch type {
+        case .heatmap: "\(Aggregation.heatmapWeeks) weeks"
+        case .timeSeries: "\(timeframe.pillLabel) · \(resolvedBucket.title.lowercased())"
+        case .breakdown: resolvedDimension == .tool ? "invocations" : timeframe.pillLabel
+        case .bigNumber, .cost, .sessionList: timeframe.pillLabel
         }
     }
 }

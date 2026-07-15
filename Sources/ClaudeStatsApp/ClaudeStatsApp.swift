@@ -12,6 +12,11 @@ struct ClaudeStatsApp: App {
                 .frame(minWidth: 720, minHeight: 520)
         }
         .defaultSize(width: 900, height: 720)
+        // The dashboard draws its own flat title bar (the small label, the freshness line, and the
+        // gear/add/refresh cluster), so the native title bar is hidden and the content runs full height
+        // under the floating traffic lights — the mockup's window chrome, which the system toolbar's
+        // large title and glass pills could not match.
+        .windowStyle(.hiddenTitleBar)
     }
 }
 

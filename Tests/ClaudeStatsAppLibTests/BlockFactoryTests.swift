@@ -65,3 +65,34 @@ import Testing
     #expect(BlockType.breakdown.fixedWindowLabel == nil)
     #expect(BlockType.sessionList.fixedWindowLabel == nil)
 }
+
+/// The header pill drops the "Last —" prefix the card title already implies: a card names its metric,
+/// the pill just scopes it.
+@Test func timeframePillLabelIsTheShortForm() {
+    #expect(Timeframe.last7Days.pillLabel == "7 days")
+    #expect(Timeframe.last30Days.pillLabel == "30 days")
+    #expect(Timeframe.allTime.pillLabel == "All time")
+}
+
+/// What the card header's pill reads: the short timeframe, except a time series appends its bucket, a
+/// tool breakdown reads "invocations" (it ignores the metric and counts calls), and the heatmap shows
+/// its own fixed window.
+@Test func headerPillLabelScopesEachBlockType() {
+    let seven = "7 days"
+    #expect(
+        BlockConfig(type: .bigNumber, timeframe: .last7Days).headerPillLabel == seven)
+    #expect(
+        BlockConfig(type: .cost, timeframe: .last30Days).headerPillLabel == "30 days")
+    #expect(
+        BlockConfig(type: .timeSeries, timeframe: .last30Days, bucket: .day).headerPillLabel
+            == "30 days · by day")
+    #expect(
+        BlockConfig(type: .breakdown, timeframe: .last30Days, dimension: .tool).headerPillLabel
+            == "invocations")
+    #expect(
+        BlockConfig(type: .breakdown, timeframe: .last30Days, dimension: .model).headerPillLabel
+            == "30 days")
+    #expect(
+        BlockConfig(type: .heatmap, timeframe: .last30Days, bucket: .day).headerPillLabel
+            == "\(Aggregation.heatmapWeeks) weeks")
+}

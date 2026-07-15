@@ -216,6 +216,41 @@ private func blocksOnDisk(_ file: URL) -> [BlockConfig] {
     #expect(model.events.map(\.messageID) == ["a", "b"])
 }
 
+// MARK: - Edit mode
+
+/// Edit mode starts off — the resting dashboard is clean — and toggling it is transient UI state
+/// that never rewrites the layout file.
+@MainActor @Test func editingStartsOffAndTogglesWithoutPersisting() async throws {
+    let file = try makeScratchLayoutFile("editing")
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    let model = await seededModel([BlockConfig(type: .bigNumber, timeframe: .last7Days)], file: file)
+    let before = blocksOnDisk(file)
+
+    #expect(model.isEditing == false)
+
+    model.setEditing(true)
+    #expect(model.isEditing == true)
+
+    model.setEditing(false)
+    #expect(model.isEditing == false)
+    #expect(blocksOnDisk(file) == before)
+    #expect(model.persistenceError == nil)
+}
+
+// MARK: - Status projection
+
+/// The toolbar's "N responses" is the all-time response count over the loaded events.
+@MainActor @Test func responseCountIsTheAllTimeResponseTotal() async throws {
+    let file = try makeScratchLayoutFile("response-count")
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    let events = [
+        makeEvent(messageID: "a"), makeEvent(messageID: "b"), makeEvent(messageID: "c"),
+    ]
+    let model = await seededModel([], file: file, events: events)
+
+    #expect(model.responseCount == 3)
+}
+
 // MARK: - Breakdown detail modal state
 
 @MainActor @Test func expandBreakdownRecordsTheTargetAndReplacesAPriorOne() async throws {

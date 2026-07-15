@@ -101,7 +101,8 @@ struct SettingsView: View {
                 // accent and ignores the environment, so — like the refresh segmented control — it
                 // would not recolour with the theme.
                 ThemedToggle(
-                    isOn: model.preferences.showCost, set: model.setShowCost)
+                    isOn: model.preferences.showCost, set: model.setShowCost,
+                    accessibilityLabel: "Show cost estimate")
             }
             Text(
                 "Estimated from average published prices. Not a billing document — the transcripts "
@@ -117,6 +118,19 @@ struct SettingsView: View {
 
     private var layout: some View {
         Section(title: "Layout") {
+            SettingsRow(label: "Edit dashboard") {
+                ThemedToggle(
+                    isOn: model.isEditing, set: model.setEditing,
+                    accessibilityLabel: "Edit dashboard")
+            }
+            Text(
+                "Reveal the controls to reorder, configure, and remove blocks. Turn off for a clean "
+                    + "dashboard; it resets on relaunch."
+            )
+            .font(.caption)
+            .foregroundStyle(theme.mut)
+            .fixedSize(horizontal: false, vertical: true)
+
             SettingsRow(label: "Layout file", detail: model.layoutFileURL.path()) {
                 Button("Reset…") { confirmingReset = true }
                     .foregroundStyle(theme.accent)
@@ -226,6 +240,7 @@ private struct SegmentedControl<Option: Hashable>: View {
 private struct ThemedToggle: View {
     let isOn: Bool
     let set: (Bool) -> Void
+    let accessibilityLabel: String
     @Environment(\.theme) private var theme
 
     var body: some View {
@@ -244,7 +259,7 @@ private struct ThemedToggle: View {
                 .overlay(Capsule().strokeBorder(theme.cardB, lineWidth: 1))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Show cost estimate")
+        .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(isOn ? "on" : "off")
     }
 }

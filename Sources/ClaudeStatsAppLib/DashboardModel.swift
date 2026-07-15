@@ -30,6 +30,12 @@ final class DashboardModel {
     /// the modal reflects the exact card (its metric and timeframe) that was expanded.
     private(set) var expandedBreakdown: BlockConfig?
 
+    /// Whether the dashboard is in layout-editing mode. Only then do the per-card reorder/configure/
+    /// remove controls appear, so the resting dashboard reads clean like the mockup. Transient UI
+    /// state — an editing session is not part of the saved layout — so it is outside `persist()`,
+    /// never reaches `layout.json`, and starts off on every launch.
+    var isEditing = false
+
     /// Blocks the layout named that this build could not render.
     private(set) var skipped: [SkippedBlock]
     /// The layout file was unreadable and has been replaced by the default.
@@ -81,6 +87,17 @@ final class DashboardModel {
     /// The events of the most recent successful scan, or none.
     var events: [TranscriptEvent] { scan?.events ?? [] }
 
+    /// When the numbers were last made current, for the toolbar's freshness line. `nil` before the
+    /// first successful scan.
+    var lastRefreshedAt: Date? { stats.lastRefreshedAt }
+
+    /// The all-time number of API responses across the loaded corpus — the toolbar's "N responses".
+    /// Derived through the same deduplicating aggregation every count uses, so a caller cannot get a
+    /// per-line inflation here.
+    var responseCount: Int {
+        Aggregation.total(.requests, over: events, timeframe: .allTime, now: .now)
+    }
+
     // MARK: - Layout editing
 
     func add(_ type: BlockType) {
@@ -113,6 +130,12 @@ final class DashboardModel {
     /// Closes the detail modal.
     func collapseBreakdown() {
         expandedBreakdown = nil
+    }
+
+    /// Enters or leaves layout-editing mode. Transient, like the detail modal: it reveals the card
+    /// controls but changes no block, so it never calls `persist()`.
+    func setEditing(_ editing: Bool) {
+        isEditing = editing
     }
 
     func dismissNotices() {

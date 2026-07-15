@@ -44,7 +44,8 @@ struct BigNumberBlockView: View {
         let up = delta >= 0
         let percent = abs(delta).formatted(.percent.precision(.fractionLength(0)))
         return Text("\(up ? "▲" : "▼") \(percent) vs prev.")
-            .font(.caption)
+            // 12pt, matching the mockup's delta line — `.caption` rendered noticeably smaller.
+            .font(.system(size: 12))
             .monospacedDigit()
             .foregroundStyle(up ? theme.pos : theme.mut)
     }

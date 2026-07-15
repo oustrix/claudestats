@@ -24,18 +24,22 @@ public struct DashboardView: View {
 
     public var body: some View {
         let theme = self.theme
-        return content
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(theme.back)
-            .environment(\.theme, theme)
-            // Both palettes are dark and the app paints its own surfaces, so pin the scheme to dark:
-            // native chrome (progress spinners, content-unavailable views, popovers) then renders
-            // legibly on the theme even when the system is set to light. Traffic lights stay native.
-            .preferredColorScheme(.dark)
-            .toolbar { toolbar }
-            .toolbarBackground(theme.tb, for: .windowToolbar)
-            .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
-            .sheet(isPresented: $showingSettings) {
+        return VStack(spacing: 0) {
+            TitleBar(model: model, showingSettings: $showingSettings)
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Run the custom title bar to the very top, under the floating traffic lights, instead of
+        // letting the hidden title bar reserve a strip above it.
+        .ignoresSafeArea(.container, edges: .top)
+        .background(theme.back)
+        .environment(\.theme, theme)
+        // Both palettes are dark and the app paints its own surfaces, so pin the scheme to dark:
+        // native chrome (progress spinners, content-unavailable views, popovers) then renders
+        // legibly on the theme even when the system is set to light. Traffic lights stay native.
+        .preferredColorScheme(.dark)
+        .sheet(isPresented: $showingSettings) {
                 SettingsView(model: model).environment(\.theme, theme)
             }
             // The breakdown detail modal. `item:` binds to the transient `expandedBreakdown`; a
@@ -121,39 +125,104 @@ public struct DashboardView: View {
         model.preferences.showCost ? model.blocks : model.blocks.filter { $0.type != .cost }
     }
 
-    @ToolbarContentBuilder
-    private var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .status) {
-            if let scan = model.scan { ScanSummary(scan: scan) }
-        }
-        ToolbarItem {
-            Menu {
-                ForEach(BlockType.allCases, id: \.self) { type in
-                    Button {
-                        model.add(type)
-                    } label: {
-                        Label(type.title, systemImage: type.symbol)
-                    }
+}
+
+/// The app's own flat title bar, standing in for the native one (hidden via `.hiddenTitleBar`): the
+/// small app label, the freshness line, and the gear / accent-plus / refresh cluster, over the toolbar
+/// tint with a hairline base — the mockup's window chrome. The leading inset clears the floating
+/// traffic lights that now sit over the content.
+private struct TitleBar: View {
+    let model: DashboardModel
+    @Binding var showingSettings: Bool
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("ClaudeStats")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.sub)
+
+            Spacer(minLength: 12)
+
+            // The freshness line, and any data the last scan lost beside it (the latter only on loss).
+            if let scan = model.scan {
+                DashboardStatus(
+                    responses: model.responseCount, updatedAt: model.lastRefreshedAt, theme: theme)
+                ScanSummary(scan: scan)
+            }
+
+            HStack(spacing: 6) {
+                TitleBarButton(system: "gearshape", help: "Settings") { showingSettings = true }
+                AddBlockMenu(model: model)
+                TitleBarButton(system: "arrow.clockwise", help: "Refresh") {
+                    Task { await model.stats.refresh(force: true) }
                 }
-            } label: {
-                Label("Add block", systemImage: "plus")
+                .keyboardShortcut("r")
             }
         }
-        ToolbarItem {
-            Button {
-                Task { await model.stats.refresh(force: true) }
-            } label: {
-                Label("Refresh", systemImage: "arrow.clockwise")
-            }
-            .keyboardShortcut("r")
+        // The traffic lights float over the content's top-left; this inset keeps the label clear of them.
+        .padding(.leading, 78)
+        .padding(.trailing, 14)
+        .frame(height: 46)
+        .frame(maxWidth: .infinity)
+        .background(theme.tb)
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.bord).frame(height: 1) }
+    }
+}
+
+/// A quiet title-bar icon button: muted at rest, a pill of `theme.pill` on hover, matching the
+/// mockup's gear and refresh.
+private struct TitleBarButton: View {
+    let system: String
+    let help: String
+    let action: () -> Void
+    @Environment(\.theme) private var theme
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: system)
+                .font(.system(size: 14))
+                .foregroundStyle(theme.mut)
+                .frame(width: 28, height: 28)
+                .background(hovering ? theme.pill : .clear, in: RoundedRectangle(cornerRadius: 7))
+                .contentShape(RoundedRectangle(cornerRadius: 7))
         }
-        ToolbarItem {
-            Button {
-                showingSettings = true
-            } label: {
-                Label("Settings", systemImage: "gearshape")
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help(help)
+    }
+}
+
+/// The accent-filled "+" that adds a block. A `Menu` styled as the mockup's solid accent square — the
+/// chevron hidden, the bezel dropped — so it reads as one button, not a native pop-up.
+private struct AddBlockMenu: View {
+    let model: DashboardModel
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        Menu {
+            ForEach(BlockType.allCases, id: \.self) { type in
+                Button {
+                    model.add(type)
+                } label: {
+                    Label(type.title, systemImage: type.symbol)
+                }
             }
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(theme.onAccent)
+                .frame(width: 28, height: 28)
+                .background(theme.accent, in: RoundedRectangle(cornerRadius: 7))
+                .contentShape(RoundedRectangle(cornerRadius: 7))
         }
+        // `.plain` keeps the custom accent-square label exactly as drawn; `.borderlessButton` would
+        // strip its fill back to a bare glyph.
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Add block")
     }
 }
 
@@ -167,17 +236,20 @@ private struct BlockCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            HStack(spacing: 8) {
                 Text(block.title).font(.headline).foregroundStyle(theme.txt)
-                // A fixed-window block (the heatmap) labels its window; the rest label their timeframe.
-                Text(block.type.fixedWindowLabel ?? block.timeframe.title)
-                    .font(.caption).foregroundStyle(theme.mut)
+                // The timeframe (and, for a chart, its bucket) as a quiet pill, matching the mockup.
+                HeaderPill(text: block.headerPillLabel)
                 Spacer()
-                // A breakdown card can expand its top-N into a full-ranking modal.
+                // A breakdown card can expand its top-N into a full-ranking modal — a viewing
+                // affordance, so it stays visible even outside edit mode.
                 if block.type == .breakdown {
                     BreakdownExpandButton { model.expandBreakdown(block) }
                 }
-                controls
+                // Reorder/configure/remove appear only in edit mode, so the resting dashboard is clean.
+                if model.isEditing {
+                    controls
+                }
             }
             body(for: block)
         }
@@ -249,5 +321,47 @@ private struct BlockCard: View {
         .buttonStyle(.borderless)
         .labelStyle(.iconOnly)
         .foregroundStyle(theme.mut)
+    }
+}
+
+/// The small rounded badge in a block header that scopes the card — its timeframe, or a chart's
+/// bucket, or "invocations". Faint text on the pill surface, the header's quiet second line, matching
+/// the mockup and the detail modal's own scope pill.
+private struct HeaderPill: View {
+    let text: String
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11))
+            .foregroundStyle(theme.faint)
+            .padding(.vertical, 2)
+            .padding(.horizontal, 7)
+            .background(theme.pill, in: Capsule())
+    }
+}
+
+/// The toolbar's freshness line: how long ago the numbers were made current, and how many responses
+/// they cover. Monospaced and faint, as in the mockup. The theme is passed in rather than read from
+/// the environment, which a toolbar item does not reliably inherit.
+private struct DashboardStatus: View {
+    let responses: Int
+    let updatedAt: Date?
+    let theme: Theme
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11, design: .monospaced))
+            .foregroundStyle(theme.faint)
+            .monospacedDigit()
+    }
+
+    private var text: String {
+        let responsesText = "\(responses.grouped) responses"
+        guard let updatedAt else { return responsesText }
+        // `.named` reads "now" the instant after a refresh — where `.numeric` says the awkward "in 0
+        // sec." — and falls back to "2 min. ago" once there is a span worth naming.
+        let ago = updatedAt.formatted(.relative(presentation: .named, unitsStyle: .abbreviated))
+        return "updated \(ago) · \(responsesText)"
     }
 }

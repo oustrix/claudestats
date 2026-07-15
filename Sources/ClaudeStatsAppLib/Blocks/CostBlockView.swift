@@ -24,8 +24,8 @@ struct CostBlockView: View {
                 .contentTransition(.numericText())
 
             Text("estimate · not a bill")
-                .font(.callout)
-                .foregroundStyle(theme.sub)
+                .font(.caption)
+                .foregroundStyle(theme.faint)
 
             // Never lie silently: a model with no rate is named, not folded into the total as $0.
             if !estimate.unpricedModels.isEmpty {
