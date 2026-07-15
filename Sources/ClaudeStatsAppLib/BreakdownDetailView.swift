@@ -34,6 +34,9 @@ struct BreakdownDetailView: View {
                     rowSpacing: 8
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
+                // Reserve a gutter on the right so the overlay scrollbar, which floats over the
+                // content, does not sit on top of the value column.
+                .padding(.trailing, 14)
             }
             .frame(maxHeight: 460)
         }
