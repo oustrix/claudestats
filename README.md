@@ -1,11 +1,31 @@
+<div align="center">
+
+<img src=".github/assets/icon.png" width="128" alt="ClaudeStats app icon">
+
 # ClaudeStats
 
-A native macOS app that reads your Claude Code transcripts and shows how your token
-usage adds up — over time, and across projects, models and tools. The dashboard is a
-list of blocks you compose yourself.
+**A native macOS dashboard for your Claude Code token usage —**
+**over time, and across projects, models and tools.**
 
-It reads `~/.claude/projects/` and writes nothing there. The only file it creates is its
-own layout.
+[![CI](https://img.shields.io/github/actions/workflow/status/oustrix/claudestats/ci.yml?branch=main&label=CI&logo=github)](https://github.com/oustrix/claudestats/actions/workflows/ci.yml)
+![Platform](https://img.shields.io/badge/macOS-26-000000?logo=apple&logoColor=white)
+![Swift](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/License-MIT-3da639)](LICENSE)
+
+</div>
+
+It reads `~/.claude/projects/` and writes nothing there — the only files it creates are its
+own layout, settings, and pricing table, in Application Support.
+
+<div align="center">
+
+<img src=".github/assets/dashboard.png" width="820" alt="The ClaudeStats dashboard: KPI cards, a time series of tokens by day, and breakdowns by model, project and tool">
+
+<img src=".github/assets/heatmap-sessions.png" width="820" alt="A calendar heatmap of activity and a list of recent sessions with duration, tokens and estimated cost">
+
+<sub>Screenshots use a synthetic corpus, not real data.</sub>
+
+</div>
 
 ## Build and run
 
@@ -31,17 +51,18 @@ cannot ship through the Mac App Store, which is not a goal.
 
 ## The dashboard
 
-The window is a scrolling list of blocks. Each block is one of four types, and you set its
-parameters yourself:
+The window is a grid of blocks. Each block is one of six types, and you set its parameters
+yourself:
 
 - **Number** — a single headline figure for a metric and timeframe.
+- **Cost** — a headline dollar estimate for a timeframe (see below).
 - **Chart over time** — a metric bucketed by day or hour.
 - **Breakdown** — a metric ranked by model, project, or tool.
+- **Heatmap** — a calendar of activity, one cell per day.
 - **Sessions** — recent sessions, newest first.
 
-Add a block from the toolbar's **+** menu, drag nothing — reorder with the up/down
-buttons on each block, edit parameters with the sliders button, remove with the trash
-button. Every change is saved immediately.
+Add a block from the toolbar's **+** menu — reorder, resize its span, edit parameters, or
+remove it from the controls on each block. Every change is saved immediately.
 
 The layout lives at `~/Library/Application Support/ClaudeStats/layout.json`. It is plain,
 readable JSON — edit it by hand if you prefer. A block whose type this build does not know
@@ -53,8 +74,10 @@ is skipped with a notice, not a crash; a file that will not parse is moved aside
 - **Tokens are counted once per response**, even though Claude Code writes each response
   across several lines in the transcript. Getting this wrong inflates the count by roughly
   2.3×; the app's totals match `ccusage` exactly.
-- **There is no dollar figure.** Token counts are recorded facts; a price table is not, and
-  a stale one lies silently. If you want cost, `ccusage` estimates it.
+- **Cost is an estimate, not a bill.** The dollar figures come from a pricing table you edit
+  yourself (**Settings → Pricing**, or `pricing.json`) — token counts are recorded facts, a
+  price table is not, and a stale one lies silently. Hide every cost block from settings if
+  you would rather not see a number that can drift.
 - **Cache reads dominate** — over 90% of all tokens on a typical corpus. That is why the
   default headline is input + output, not "all tokens": an all-tokens headline would really
   be a headline about the cache.
