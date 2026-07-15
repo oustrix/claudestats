@@ -43,6 +43,19 @@ private func scan(_ events: [TranscriptEvent]) -> (result: ScanResult, state: Fi
     #expect(StatsStore(source: ScriptedSource()).state == .idle)
 }
 
+/// A fresh store has no refresh stamp; a completed scan records when the view was last made current,
+/// so the toolbar can say how fresh its numbers are.
+@MainActor @Test func aCompletedScanStampsTheRefreshTime() async {
+    let source = ScriptedSource()
+    source.answers = [.success(scan([makeEvent(messageID: "a")]))]
+    let store = StatsStore(source: source)
+    #expect(store.lastRefreshedAt == nil)
+
+    await store.refresh()
+
+    #expect(store.lastRefreshedAt != nil)
+}
+
 @MainActor @Test func refreshPublishesTheLoadedEvents() async throws {
     let source = ScriptedSource()
     source.answers = [.success(scan([makeEvent(messageID: "a")]))]

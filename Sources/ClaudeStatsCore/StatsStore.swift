@@ -26,6 +26,11 @@ public final class StatsStore {
     /// The most recent failure, kept even when earlier events are still on screen. Typed, because a
     /// caller that must distinguish a missing directory from a broken one cannot do it on a string.
     public private(set) var lastError: (any Error)?
+    /// When the view was last made current: the wall-clock instant a scan completed without error,
+    /// whether or not the corpus had changed. `nil` until the first successful scan. The toolbar reads
+    /// it to say how fresh the numbers are; it is the store's impure IO layer, not a pure aggregation,
+    /// so reading the clock here does not break the "no clock in pure functions" rule.
+    public private(set) var lastRefreshedAt: Date?
 
     @ObservationIgnored private let source: any EventSource
     @ObservationIgnored private var lastScan: FileScanState?
@@ -69,12 +74,14 @@ public final class StatsStore {
 
         switch outcome {
         case .success(nil):
-            // Nothing changed. Whatever is on screen is still true.
+            // Nothing changed. Whatever is on screen is still true — and still fresh: we just checked.
+            lastRefreshedAt = Date()
             Log.store.debug("refresh: nothing changed")
 
         case .success(.some(let scan)):
             lastScan = scan.state
             lastError = nil
+            lastRefreshedAt = Date()
             state = .loaded(scan.result)
             Log.store.debug("refresh: loaded \(scan.result.events.count) events")
 
