@@ -7,10 +7,11 @@ private let home = "/Users/me"
 
 private func event(
     _ id: String, model: String = "claude-opus-4-8", cwd: String = "/Users/me/proj",
-    input: Int = 0, tools: [String] = []
+    input: Int = 0, tools: [String] = [], sidechain: Bool = false, agent: String? = nil
 ) -> TranscriptEvent {
     makeEvent(
-        messageID: id, requestID: "r-\(id)", cwd: cwd, model: model,
+        messageID: id, requestID: "r-\(id)", cwd: cwd, model: model, isSidechain: sidechain,
+        attributionAgent: agent,
         usage: TokenUsage(input: input, output: 0, cacheCreation: 0, cacheRead: 0),
         toolNames: tools)
 }
@@ -102,20 +103,12 @@ private func event(
     #expect(rows.map(\.label) == ["alpha", "zebra"])
 }
 
-private func agentEvent(
-    _ id: String, sidechain: Bool = false, agent: String? = nil, all: Int
-) -> TranscriptEvent {
-    makeEvent(
-        messageID: id, requestID: "r-\(id)", isSidechain: sidechain, attributionAgent: agent,
-        usage: TokenUsage(input: all, output: 0, cacheCreation: 0, cacheRead: 0))
-}
-
 @Test func breakdownByAgentSeparatesMainFromTypes() {
     let events = [
-        agentEvent("a", all: 100),
-        agentEvent("b", sidechain: true, agent: "general-purpose", all: 60),
-        agentEvent("c", sidechain: true, agent: "Explore", all: 30),
-        agentEvent("d", sidechain: true, agent: "general-purpose", all: 10),
+        event("a", input: 100),
+        event("b", input: 60, sidechain: true, agent: "general-purpose"),
+        event("c", input: 30, sidechain: true, agent: "Explore"),
+        event("d", input: 10, sidechain: true, agent: "general-purpose"),
     ]
 
     let rows = Aggregation.breakdown(
@@ -128,7 +121,7 @@ private func agentEvent(
 @Test func breakdownByAgentBucketsUntypedSidechainUnderSubagent() {
     let rows = Aggregation.breakdown(
         .agent, metric: .allTokens,
-        over: [agentEvent("a", sidechain: true, agent: nil, all: 5)],
+        over: [event("a", input: 5, sidechain: true, agent: nil)],
         limit: 10, home: home, timeframe: .allTime)
 
     #expect(rows.map(\.label) == ["subagent"])
@@ -137,9 +130,9 @@ private func agentEvent(
 
 @Test func agentBreakdownConservesTheAllTokensTotal() {
     let events = [
-        agentEvent("a", all: 100),
-        agentEvent("b", sidechain: true, agent: "general-purpose", all: 60),
-        agentEvent("c", sidechain: true, agent: nil, all: 5),
+        event("a", input: 100),
+        event("b", input: 60, sidechain: true, agent: "general-purpose"),
+        event("c", input: 5, sidechain: true, agent: nil),
     ]
 
     let rowsSum = Aggregation.breakdown(
