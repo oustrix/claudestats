@@ -79,7 +79,7 @@ import ViewInspector
     ]
     let view = try BreakdownDetailView(block: block, events: events, home: home).inspect()
 
-    _ = try view.find(text: "By model")
+    _ = try view.find(text: "Input + output by model")
     _ = try view.find(text: "2 models · All time")
 }
 

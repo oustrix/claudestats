@@ -272,7 +272,13 @@ extension BlockConfig {
         case .bigNumber: metric?.title ?? "Number"
         case .cost: "Cost estimate"
         case .timeSeries: "\(metric?.title ?? "Tokens") over time"
-        case .breakdown: "By \(dimension?.title.lowercased() ?? "dimension")"
+        case .breakdown:
+            // A tool breakdown counts invocations and ignores the metric, so naming one would lie;
+            // every other dimension leads with its metric, like `timeSeries`/`heatmap` do, so two
+            // breakdowns of the same dimension on different metrics read apart at a glance.
+            dimension == .tool
+                ? "By tool"
+                : "\(metric?.title ?? "Tokens") by \(dimension?.title.lowercased() ?? "dimension")"
         case .sessionList: "Sessions"
         case .heatmap: "\(metric?.title ?? "Tokens") heatmap"
         }
