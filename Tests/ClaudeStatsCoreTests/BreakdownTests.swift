@@ -132,6 +132,7 @@ private func agentEvent(
         limit: 10, home: home, timeframe: .allTime)
 
     #expect(rows.map(\.label) == ["subagent"])
+    #expect(rows.map(\.value) == [5])
 }
 
 @Test func agentBreakdownConservesTheAllTokensTotal() {

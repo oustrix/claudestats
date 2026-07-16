@@ -89,6 +89,7 @@ func printBreakdown(_ title: String, _ dimension: BreakdownDimension, metric: Me
 printBreakdown("By model (input + output)", .model, metric: .inputOutput)
 printBreakdown("By project (input + output)", .project, metric: .inputOutput)
 printBreakdown("By tool (invocations)", .tool, metric: .requests)
+printBreakdown("By agent (all tokens)", .agent, metric: .allTokens)
 
 // Cost is derived per model from the bundled default rates — reproducible, independent of any
 // user-edited pricing.json, so a cross-check against ccusage/jq compares the same methodology.
