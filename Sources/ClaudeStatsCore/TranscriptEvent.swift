@@ -41,6 +41,10 @@ public struct TranscriptEvent: Equatable, Sendable {
     public let gitBranch: String?
     public let model: String
     public let isSidechain: Bool
+    /// The subagent type this record was attributed to (`general-purpose`, `Explore`, …). Internal,
+    /// like `usage`: it reaches the outside only through `Message.agentLabel`. Nil on the main
+    /// conversation and on old-format sidechain records that predate the field.
+    let attributionAgent: String?
     let usage: TokenUsage
     /// Present only on the line that ends a response. Claude Code streams: every earlier line of the
     /// same response reports a placeholder `output_tokens`, so this is how the real count is found.

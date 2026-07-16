@@ -60,6 +60,7 @@ func makeEvent(
     gitBranch: String? = "main",
     model: String = "claude-opus-4-8",
     isSidechain: Bool = false,
+    attributionAgent: String? = nil,
     usage: TokenUsage = TokenUsage(input: 1, output: 2, cacheCreation: 3, cacheRead: 4),
     stopReason: String? = nil,
     toolNames: [String] = []
@@ -73,6 +74,7 @@ func makeEvent(
         gitBranch: gitBranch,
         model: model,
         isSidechain: isSidechain,
+        attributionAgent: attributionAgent,
         usage: usage,
         stopReason: stopReason,
         toolNames: toolNames

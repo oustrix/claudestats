@@ -105,3 +105,20 @@ func brokenLinesAreMalformed(line: String) {
     }
     #expect(event.requestID == nil)
 }
+
+@Test func attributionAgentIsExtractedWhenPresent() {
+    let line = #"{"type":"assistant","timestamp":"2026-07-02T09:43:05.761Z","sessionId":"s","cwd":"/Users/me","gitBranch":"main","isSidechain":true,"attributionAgent":"general-purpose","requestId":"r","message":{"id":"m","model":"claude-opus-4-8","content":[{"type":"text","text":"hi"}],"usage":{"input_tokens":1,"output_tokens":2,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}"#
+    guard case let .event(event) = TranscriptParser.parseLine(line) else {
+        Issue.record("expected an event"); return
+    }
+    #expect(event.attributionAgent == "general-purpose")
+    #expect(event.isSidechain)
+}
+
+@Test func attributionAgentIsNilWhenAbsent() {
+    let line = #"{"type":"assistant","timestamp":"2026-07-02T09:43:05.761Z","sessionId":"s","cwd":"/Users/me","gitBranch":"main","isSidechain":false,"requestId":"r","message":{"id":"m","model":"claude-opus-4-8","content":[{"type":"text","text":"hi"}],"usage":{"input_tokens":1,"output_tokens":2,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}"#
+    guard case let .event(event) = TranscriptParser.parseLine(line) else {
+        Issue.record("expected an event"); return
+    }
+    #expect(event.attributionAgent == nil)
+}

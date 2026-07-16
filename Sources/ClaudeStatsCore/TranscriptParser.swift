@@ -47,6 +47,7 @@ public enum TranscriptParser {
                 gitBranch: raw.gitBranch,
                 model: model,
                 isSidechain: raw.isSidechain ?? false,
+                attributionAgent: raw.attributionAgent,
                 usage: TokenUsage(
                     input: usage.input_tokens,
                     output: usage.output_tokens,
@@ -80,6 +81,7 @@ private struct RawLine: Decodable {
     let cwd: String?
     let gitBranch: String?
     let isSidechain: Bool?
+    let attributionAgent: String?
     let requestId: String?
     let message: RawMessage?
 }
