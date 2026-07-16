@@ -15,10 +15,17 @@ public struct Message: Equatable, Sendable {
     public let gitBranch: String?
     public let model: String
     public let isSidechain: Bool
+    /// The subagent type, carried from the event's first line (like `cwd`). Nil for the main
+    /// conversation and untyped old-format sidechain records.
+    let attributionAgent: String?
     /// Settable within the module only: `Counting` replaces it when a response's final line arrives.
     public internal(set) var usage: TokenUsage
     /// Whether `usage` came from the line that ended the response, rather than a streaming placeholder.
     var usageIsFinal: Bool
+
+    /// How a breakdown by agent names this message: the main conversation is `main`; a subagent
+    /// message is its type, or `subagent` when the type is unknown. Never drops a token silently.
+    var agentLabel: String { isSidechain ? (attributionAgent ?? "subagent") : "main" }
 
     init(_ event: TranscriptEvent) {
         messageID = event.messageID
@@ -29,6 +36,7 @@ public struct Message: Equatable, Sendable {
         gitBranch = event.gitBranch
         model = event.model
         isSidechain = event.isSidechain
+        attributionAgent = event.attributionAgent
         usage = event.usage
         usageIsFinal = event.stopReason != nil
     }
@@ -50,6 +58,7 @@ public struct Message: Equatable, Sendable {
         lhs.messageID == rhs.messageID && lhs.requestID == rhs.requestID
             && lhs.timestamp == rhs.timestamp && lhs.sessionID == rhs.sessionID
             && lhs.cwd == rhs.cwd && lhs.gitBranch == rhs.gitBranch && lhs.model == rhs.model
-            && lhs.isSidechain == rhs.isSidechain && lhs.usage == rhs.usage
+            && lhs.isSidechain == rhs.isSidechain && lhs.attributionAgent == rhs.attributionAgent
+            && lhs.usage == rhs.usage
     }
 }

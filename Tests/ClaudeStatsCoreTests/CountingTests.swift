@@ -146,3 +146,20 @@ private let splitMessage = [
     #expect(Counting.messages(from: []).isEmpty)
     #expect(Counting.toolInvocations(from: []).isEmpty)
 }
+
+@Test func agentLabelIsMainForTheMainConversation() {
+    let message = Counting.messages(from: [makeEvent(isSidechain: false)]).first!
+    #expect(message.agentLabel == "main")
+}
+
+@Test func agentLabelIsTheSubagentTypeForSidechain() {
+    let message = Counting.messages(
+        from: [makeEvent(isSidechain: true, attributionAgent: "Explore")]).first!
+    #expect(message.agentLabel == "Explore")
+}
+
+@Test func agentLabelFallsBackToSubagentWhenUntyped() {
+    let message = Counting.messages(
+        from: [makeEvent(isSidechain: true, attributionAgent: nil)]).first!
+    #expect(message.agentLabel == "subagent")
+}
