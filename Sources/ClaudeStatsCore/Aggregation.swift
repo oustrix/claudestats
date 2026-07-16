@@ -215,6 +215,10 @@ public enum Aggregation {
             rows = totals(over: events, metric: metric, keyedBy: \.model)
                 .map { BreakdownRow(label: $0.key, detail: nil, value: $0.value) }
 
+        case .agent:
+            rows = totals(over: events, metric: metric, keyedBy: \.agentLabel)
+                .map { BreakdownRow(label: $0.key, detail: nil, value: $0.value) }
+
         case .project:
             // Keyed by the raw path, so one `Project` is built per distinct project, not per message.
             rows = totals(over: events, metric: metric, keyedBy: \.cwd)

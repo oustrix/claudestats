@@ -68,4 +68,5 @@ public enum BreakdownDimension: String, Codable, CaseIterable, Sendable {
     case model
     case project
     case tool
+    case agent
 }

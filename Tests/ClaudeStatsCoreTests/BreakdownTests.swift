@@ -101,3 +101,50 @@ private func event(
 
     #expect(rows.map(\.label) == ["alpha", "zebra"])
 }
+
+private func agentEvent(
+    _ id: String, sidechain: Bool = false, agent: String? = nil, all: Int
+) -> TranscriptEvent {
+    makeEvent(
+        messageID: id, requestID: "r-\(id)", isSidechain: sidechain, attributionAgent: agent,
+        usage: TokenUsage(input: all, output: 0, cacheCreation: 0, cacheRead: 0))
+}
+
+@Test func breakdownByAgentSeparatesMainFromTypes() {
+    let events = [
+        agentEvent("a", all: 100),
+        agentEvent("b", sidechain: true, agent: "general-purpose", all: 60),
+        agentEvent("c", sidechain: true, agent: "Explore", all: 30),
+        agentEvent("d", sidechain: true, agent: "general-purpose", all: 10),
+    ]
+
+    let rows = Aggregation.breakdown(
+        .agent, metric: .allTokens, over: events, limit: 10, home: home, timeframe: .allTime)
+
+    #expect(rows.map(\.label) == ["main", "general-purpose", "Explore"])
+    #expect(rows.map(\.value) == [100, 70, 30])
+}
+
+@Test func breakdownByAgentBucketsUntypedSidechainUnderSubagent() {
+    let rows = Aggregation.breakdown(
+        .agent, metric: .allTokens,
+        over: [agentEvent("a", sidechain: true, agent: nil, all: 5)],
+        limit: 10, home: home, timeframe: .allTime)
+
+    #expect(rows.map(\.label) == ["subagent"])
+}
+
+@Test func agentBreakdownConservesTheAllTokensTotal() {
+    let events = [
+        agentEvent("a", all: 100),
+        agentEvent("b", sidechain: true, agent: "general-purpose", all: 60),
+        agentEvent("c", sidechain: true, agent: nil, all: 5),
+    ]
+
+    let rowsSum = Aggregation.breakdown(
+        .agent, metric: .allTokens, over: events, limit: .max, home: home, timeframe: .allTime
+    ).reduce(0) { $0 + $1.value }
+    let total = Aggregation.total(.allTokens, over: events, timeframe: .allTime)
+
+    #expect(rowsSum == total)
+}

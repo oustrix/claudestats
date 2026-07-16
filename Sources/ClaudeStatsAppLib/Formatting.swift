@@ -55,6 +55,7 @@ extension BreakdownDimension {
         case .model: "Model"
         case .project: "Project"
         case .tool: "Tool"
+        case .agent: "Agent"
         }
     }
 
